@@ -196,6 +196,7 @@
                 <a href="/combat">Combat</a>
                 <a href="/defenses">Defenses</a>
                 <a href="/planets">Planets</a>
+                <a href="/teams">Teams</a>
                 <a href="/messages">Messages</a>
                 <a href="/ranking">Rankings</a>
                 <a href="/logout">Logout</a>

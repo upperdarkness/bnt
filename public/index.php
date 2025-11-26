@@ -13,11 +13,13 @@ use BNT\Models\Universe;
 use BNT\Models\Planet;
 use BNT\Models\Combat;
 use BNT\Models\Bounty;
+use BNT\Models\Team;
 use BNT\Controllers\AuthController;
 use BNT\Controllers\GameController;
 use BNT\Controllers\PortController;
 use BNT\Controllers\CombatController;
 use BNT\Controllers\PlanetController;
+use BNT\Controllers\TeamController;
 
 // Load configuration
 $config = require __DIR__ . '/../config/config.php';
@@ -33,6 +35,7 @@ $universeModel = new Universe($db);
 $planetModel = new Planet($db);
 $combatModel = new Combat($db);
 $bountyModel = new Bounty($db);
+$teamModel = new Team($db);
 
 // Initialize controllers
 $authController = new AuthController($shipModel, $session, $config);
@@ -40,6 +43,7 @@ $gameController = new GameController($shipModel, $universeModel, $planetModel, $
 $portController = new PortController($shipModel, $universeModel, $session, $config);
 $combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config);
 $planetController = new PlanetController($shipModel, $planetModel, $session, $config);
+$teamController = new TeamController($shipModel, $teamModel, $session, $config);
 
 // Define routes
 $router->get('/', fn() => $authController->showLogin());
@@ -71,6 +75,19 @@ $router->post('/planet/colonize/:id', fn($id) => $planetController->colonize((in
 $router->post('/planet/transfer/:id', fn($id) => $planetController->transfer((int)$id));
 $router->post('/planet/production/:id', fn($id) => $planetController->updateProduction((int)$id));
 $router->post('/planet/base/:id', fn($id) => $planetController->buildBase((int)$id));
+
+$router->get('/teams', fn() => $teamController->index());
+$router->get('/teams/create', fn() => $teamController->create());
+$router->post('/teams/store', fn() => $teamController->store());
+$router->get('/teams/:id', fn($id) => $teamController->show((int)$id));
+$router->post('/teams/leave', fn() => $teamController->leave());
+$router->post('/teams/members/:id/kick', fn($id) => $teamController->kick((int)$id));
+$router->post('/teams/:id/invite', fn($id) => $teamController->invite());
+$router->post('/teams/invitations/:id/accept', fn($id) => $teamController->acceptInvitation((int)$id));
+$router->post('/teams/invitations/:id/decline', fn($id) => $teamController->declineInvitation((int)$id));
+$router->post('/teams/:id/messages', fn($id) => $teamController->postMessage((int)$id));
+$router->post('/teams/:id/update', fn($id) => $teamController->update((int)$id));
+$router->post('/teams/:id/disband', fn($id) => $teamController->disband((int)$id));
 
 // Dispatch request
 $method = $_SERVER['REQUEST_METHOD'];
