@@ -11,9 +11,12 @@ use BNT\Core\Session;
 use BNT\Models\Ship;
 use BNT\Models\Universe;
 use BNT\Models\Planet;
+use BNT\Models\Combat;
+use BNT\Models\Bounty;
 use BNT\Controllers\AuthController;
 use BNT\Controllers\GameController;
 use BNT\Controllers\PortController;
+use BNT\Controllers\CombatController;
 
 // Load configuration
 $config = require __DIR__ . '/../config/config.php';
@@ -27,11 +30,14 @@ $router = new Router();
 $shipModel = new Ship($db);
 $universeModel = new Universe($db);
 $planetModel = new Planet($db);
+$combatModel = new Combat($db);
+$bountyModel = new Bounty($db);
 
 // Initialize controllers
 $authController = new AuthController($shipModel, $session, $config);
 $gameController = new GameController($shipModel, $universeModel, $planetModel, $session, $config);
 $portController = new PortController($shipModel, $universeModel, $session, $config);
+$combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config);
 
 // Define routes
 $router->get('/', fn() => $authController->showLogin());
@@ -48,6 +54,11 @@ $router->post('/land/:id', fn($id) => $gameController->landOnPlanet((int)$id));
 
 $router->get('/port', fn() => $portController->show());
 $router->post('/port/trade', fn() => $portController->trade());
+
+$router->get('/combat', fn() => $combatController->show());
+$router->post('/combat/attack/ship/:id', fn($id) => $combatController->attackShip((int)$id));
+$router->post('/combat/attack/planet/:id', fn($id) => $combatController->attackPlanet((int)$id));
+$router->post('/combat/deploy', fn() => $combatController->deployDefense());
 
 // Dispatch request
 $method = $_SERVER['REQUEST_METHOD'];
