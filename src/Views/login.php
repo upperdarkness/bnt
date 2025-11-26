@@ -1,0 +1,67 @@
+<?php
+$title = 'Login - BlackNova Traders';
+$showHeader = false;
+ob_start();
+?>
+
+<div style="text-align: center; margin-bottom: 40px;">
+    <h1 style="font-size: 48px; color: #3498db; text-shadow: 0 0 20px rgba(52, 152, 219, 0.7);">
+        BlackNova Traders
+    </h1>
+    <p style="color: #7f8c8d; font-size: 18px;">Space Trading & Combat Game</p>
+</div>
+
+<div style="max-width: 500px; margin: 0 auto;">
+    <div style="background: rgba(15, 76, 117, 0.3); padding: 30px; border-radius: 10px; border: 1px solid rgba(52, 152, 219, 0.3); margin-bottom: 20px;">
+        <h2 style="color: #3498db; margin-bottom: 20px;">Login</h2>
+        <form action="/login" method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($this->session->getCsrfToken()) ?>">
+
+            <div style="margin-bottom: 15px;">
+                <label>Email:</label>
+                <input type="email" name="email" required>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label>Password:</label>
+                <input type="password" name="password" required>
+            </div>
+
+            <input type="submit" value="Login">
+        </form>
+    </div>
+
+    <div style="background: rgba(15, 76, 117, 0.3); padding: 30px; border-radius: 10px; border: 1px solid rgba(52, 152, 219, 0.3);">
+        <h2 style="color: #3498db; margin-bottom: 20px;">New Player Registration</h2>
+        <form action="/register" method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($this->session->getCsrfToken()) ?>">
+
+            <div style="margin-bottom: 15px;">
+                <label>Email:</label>
+                <input type="email" name="email" required>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label>Password (min 8 characters):</label>
+                <input type="password" name="password" required minlength="8">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label>Character Name:</label>
+                <input type="text" name="character_name" required minlength="3" maxlength="50">
+            </div>
+
+            <input type="submit" value="Register">
+        </form>
+    </div>
+
+    <div style="margin-top: 30px; text-align: center;">
+        <a href="/ranking" class="btn">View Rankings</a>
+        <a href="/help" class="btn">Help & FAQ</a>
+    </div>
+</div>
+
+<?php
+$content = ob_get_clean();
+include __DIR__ . '/layout.php';
+?>
