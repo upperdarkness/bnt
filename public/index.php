@@ -17,6 +17,7 @@ use BNT\Controllers\AuthController;
 use BNT\Controllers\GameController;
 use BNT\Controllers\PortController;
 use BNT\Controllers\CombatController;
+use BNT\Controllers\PlanetController;
 
 // Load configuration
 $config = require __DIR__ . '/../config/config.php';
@@ -38,6 +39,7 @@ $authController = new AuthController($shipModel, $session, $config);
 $gameController = new GameController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config);
 $portController = new PortController($shipModel, $universeModel, $session, $config);
 $combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config);
+$planetController = new PlanetController($shipModel, $planetModel, $session, $config);
 
 // Define routes
 $router->get('/', fn() => $authController->showLogin());
@@ -62,6 +64,13 @@ $router->post('/combat/deploy', fn() => $combatController->deployDefense());
 
 $router->get('/defenses', fn() => $combatController->viewDefenses());
 $router->post('/defenses/retrieve', fn() => $combatController->retrieveDefense());
+
+$router->get('/planets', fn() => $planetController->listPlanets());
+$router->get('/planet/manage/:id', fn($id) => $planetController->manage((int)$id));
+$router->post('/planet/colonize/:id', fn($id) => $planetController->colonize((int)$id));
+$router->post('/planet/transfer/:id', fn($id) => $planetController->transfer((int)$id));
+$router->post('/planet/production/:id', fn($id) => $planetController->updateProduction((int)$id));
+$router->post('/planet/base/:id', fn($id) => $planetController->buildBase((int)$id));
 
 // Dispatch request
 $method = $_SERVER['REQUEST_METHOD'];

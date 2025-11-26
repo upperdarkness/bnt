@@ -96,12 +96,37 @@ ob_start();
 
 <div style="margin-top: 30px;">
     <a href="/main" class="btn">Back to Main</a>
-    <?php if ($planet['owner'] == 0 || $planet['owner'] == $ship['ship_id']): ?>
+
+    <?php if ($planet['owner'] == 0): ?>
+    <!-- Unclaimed Planet -->
     <form action="/land/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
         <button type="submit" class="btn">Land on Planet</button>
     </form>
-    <?php elseif ($planet['owner'] != $ship['ship_id']): ?>
+    <?php if ($ship['ship_colonists'] >= 100): ?>
+    <form action="/planet/colonize/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;"
+          onsubmit="return confirm('Colonize this planet? This will transfer 100 colonists to claim it.');">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+        <button type="submit" class="btn" style="background: rgba(46, 204, 113, 0.3); border-color: #2ecc71;">
+            Colonize Planet (100 colonists)
+        </button>
+    </form>
+    <?php else: ?>
+    <span style="color: #7f8c8d; font-size: 14px;">(Need 100 colonists to colonize)</span>
+    <?php endif; ?>
+
+    <?php elseif ($planet['owner'] == $ship['ship_id']): ?>
+    <!-- Your Planet -->
+    <form action="/land/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+        <button type="submit" class="btn">Land on Planet</button>
+    </form>
+    <a href="/planet/manage/<?= (int)$planet['planet_id'] ?>" class="btn" style="background: rgba(52, 152, 219, 0.3); border-color: #3498db;">
+        Manage Planet
+    </a>
+
+    <?php else: ?>
+    <!-- Enemy Planet -->
     <a href="/combat" class="btn" style="background: rgba(231, 76, 60, 0.3); border-color: #e74c3c;">Attack Planet</a>
     <?php endif; ?>
 </div>

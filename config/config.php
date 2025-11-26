@@ -32,6 +32,11 @@ return [
         'universe_size' => 200,
         'sector_max' => 5000,
         'max_links' => 10,
+        'min_bases_to_own' => 3,
+        'base_credits' => 10000000,
+        'base_ore' => 10000,
+        'base_organics' => 10000,
+        'base_goods' => 10000,
     ],
 
     // Security Configuration
