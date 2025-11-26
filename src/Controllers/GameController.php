@@ -8,6 +8,7 @@ use BNT\Core\Session;
 use BNT\Models\Ship;
 use BNT\Models\Universe;
 use BNT\Models\Planet;
+use BNT\Models\Combat;
 
 class GameController
 {
@@ -15,6 +16,7 @@ class GameController
         private Ship $shipModel,
         private Universe $universeModel,
         private Planet $planetModel,
+        private Combat $combatModel,
         private Session $session,
         private array $config
     ) {}
@@ -99,6 +101,48 @@ class GameController
 
         // Log movement
         $this->logMovement((int)$ship['ship_id'], $destinationSector);
+
+        // Check for mines in destination sector
+        $mineResult = $this->combatModel->checkMines((int)$ship['ship_id'], $destinationSector, (int)$ship['hull']);
+        if ($mineResult['hit']) {
+            $this->session->set('error', $mineResult['message']);
+
+            // Apply mine damage
+            $this->combatModel->applyDamageToShip((int)$ship['ship_id'], $mineResult['damage']);
+
+            // Remove destroyed mines
+            if ($mineResult['mines_destroyed'] > 0) {
+                $this->removeMines($destinationSector, $mineResult['mines_destroyed']);
+            }
+
+            // Check if ship was destroyed
+            if ($mineResult['ship_destroyed']) {
+                $this->session->set('error', 'Your ship was destroyed by mines!');
+                header('Location: /');
+                exit;
+            }
+        }
+
+        // Check for sector fighter attacks
+        $ship = $this->shipModel->find((int)$ship['ship_id']); // Reload ship data
+        $fighterResult = $this->combatModel->checkSectorFighters($ship, $destinationSector);
+        if ($fighterResult['attacked']) {
+            $existingError = $this->session->get('error');
+            $message = $existingError ? $existingError . ' | ' . $fighterResult['message'] : $fighterResult['message'];
+            $this->session->set('error', $message);
+
+            // Apply fighter damage
+            if ($fighterResult['damage'] > 0) {
+                $this->combatModel->applyDamageToShip((int)$ship['ship_id'], $fighterResult['damage']);
+            }
+
+            // Check if ship was destroyed
+            if ($fighterResult['ship_destroyed']) {
+                $this->session->set('error', 'Your ship was destroyed by sector fighters!');
+                header('Location: /');
+                exit;
+            }
+        }
 
         header('Location: /main');
         exit;
@@ -233,5 +277,32 @@ class GameController
     {
         $sql = "INSERT INTO movement_log (ship_id, sector_id, time) VALUES (:ship_id, :sector_id, NOW())";
         $this->shipModel->db->execute($sql, ['ship_id' => $shipId, 'sector_id' => $sectorId]);
+    }
+
+    private function removeMines(int $sectorId, int $count): void
+    {
+        $sql = "SELECT * FROM sector_defence
+                WHERE sector_id = :sector AND defence_type = 'M'
+                ORDER BY quantity ASC";
+        $mines = $this->shipModel->db->fetchAll($sql, ['sector' => $sectorId]);
+
+        $remaining = $count;
+        foreach ($mines as $mine) {
+            if ($remaining <= 0) break;
+
+            if ($mine['quantity'] <= $remaining) {
+                $this->shipModel->db->execute(
+                    'DELETE FROM sector_defence WHERE defence_id = :id',
+                    ['id' => $mine['defence_id']]
+                );
+                $remaining -= $mine['quantity'];
+            } else {
+                $this->shipModel->db->execute(
+                    'UPDATE sector_defence SET quantity = quantity - :count WHERE defence_id = :id',
+                    ['count' => $remaining, 'id' => $mine['defence_id']]
+                );
+                $remaining = 0;
+            }
+        }
     }
 }

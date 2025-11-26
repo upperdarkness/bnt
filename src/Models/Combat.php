@@ -415,4 +415,105 @@ class Combat
 
         return $total;
     }
+
+    /**
+     * Execute defense vs defense combat when defenses are deployed in same sector
+     * Fighters attack mines, mines destroy fighters
+     */
+    public function defenseVsDefense(int $sectorId, int $deployingShipId): array
+    {
+        $result = [
+            'combat_occurred' => false,
+            'friendly_losses' => 0,
+            'enemy_losses' => 0,
+            'message' => '',
+        ];
+
+        // Get deploying ship's team
+        $ship = $this->db->fetchOne('SELECT team FROM ships WHERE ship_id = :id', ['id' => $deployingShipId]);
+        if (!$ship) {
+            return $result;
+        }
+
+        // Get deploying ship's defenses in this sector
+        $sql = "SELECT * FROM sector_defence
+                WHERE sector_id = :sector AND ship_id = :ship
+                ORDER BY quantity DESC";
+        $friendlyDefenses = $this->db->fetchAll($sql, ['sector' => $sectorId, 'ship' => $deployingShipId]);
+
+        if (empty($friendlyDefenses)) {
+            return $result;
+        }
+
+        // Get enemy defenses (different owner, not same team if team is set)
+        $sql = "SELECT sd.*, s.team
+                FROM sector_defence sd
+                JOIN ships s ON sd.ship_id = s.ship_id
+                WHERE sd.sector_id = :sector
+                AND sd.ship_id != :ship
+                ORDER BY sd.quantity DESC";
+        $enemyDefenses = $this->db->fetchAll($sql, ['sector' => $sectorId, 'ship' => $deployingShipId]);
+
+        if (empty($enemyDefenses)) {
+            return $result;
+        }
+
+        // Filter out team members if applicable
+        $realEnemies = [];
+        foreach ($enemyDefenses as $defense) {
+            if ($ship['team'] == 0 || $defense['team'] != $ship['team']) {
+                $realEnemies[] = $defense;
+            }
+        }
+
+        if (empty($realEnemies)) {
+            return $result;
+        }
+
+        $result['combat_occurred'] = true;
+
+        // Combat: each side attacks the other
+        foreach ($friendlyDefenses as $friendly) {
+            foreach ($realEnemies as &$enemy) {
+                if ($friendly['quantity'] <= 0 || $enemy['quantity'] <= 0) {
+                    continue;
+                }
+
+                // Calculate damage
+                $friendlyDamage = (int)($friendly['quantity'] * 0.5); // 50% effectiveness
+                $enemyDamage = (int)($enemy['quantity'] * 0.5);
+
+                // Apply damage
+                $friendlyLosses = min($friendly['quantity'], $enemyDamage);
+                $enemyLosses = min($enemy['quantity'], $friendlyDamage);
+
+                // Update quantities
+                $this->db->execute(
+                    'UPDATE sector_defence SET quantity = quantity - :losses WHERE defence_id = :id',
+                    ['losses' => $friendlyLosses, 'id' => $friendly['defence_id']]
+                );
+
+                $this->db->execute(
+                    'UPDATE sector_defence SET quantity = quantity - :losses WHERE defence_id = :id',
+                    ['losses' => $enemyLosses, 'id' => $enemy['defence_id']]
+                );
+
+                $result['friendly_losses'] += $friendlyLosses;
+                $result['enemy_losses'] += $enemyLosses;
+
+                // Update in-memory values
+                $friendly['quantity'] -= $friendlyLosses;
+                $enemy['quantity'] -= $enemyLosses;
+            }
+        }
+
+        // Clean up destroyed defenses
+        $this->db->execute('DELETE FROM sector_defence WHERE quantity <= 0');
+
+        if ($result['friendly_losses'] > 0 || $result['enemy_losses'] > 0) {
+            $result['message'] = "Defense combat! You lost {$result['friendly_losses']} units, enemies lost {$result['enemy_losses']} units.";
+        }
+
+        return $result;
+    }
 }

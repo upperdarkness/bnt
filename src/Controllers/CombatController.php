@@ -350,7 +350,15 @@ class CombatController
             $shipColumn => $ship[$shipColumn] - $quantity
         ]);
 
-        $this->session->set('message', "Deployed $quantity $defenseTypeName in this sector");
+        // Check for defense vs defense combat
+        $dvdResult = $this->combatModel->defenseVsDefense((int)$ship['sector'], (int)$ship['ship_id']);
+        if ($dvdResult['combat_occurred']) {
+            $message = "Deployed $quantity $defenseTypeName. " . $dvdResult['message'];
+            $this->session->set('message', $message);
+        } else {
+            $this->session->set('message', "Deployed $quantity $defenseTypeName in this sector");
+        }
+
         header('Location: /combat');
         exit;
     }
@@ -384,5 +392,94 @@ class CombatController
             'INSERT INTO logs (ship_id, log_type, log_data) VALUES (:id, :type, :data)',
             ['id' => $attackerId, 'type' => 13, 'data' => $data]
         );
+    }
+
+    /**
+     * View all player's defenses across sectors
+     */
+    public function viewDefenses(): void
+    {
+        $ship = $this->requireAuth();
+
+        // Get all player's defenses
+        $sql = "SELECT sd.*, u.sector_name,
+                CASE WHEN sd.defence_type = 'F' THEN 'Fighters' ELSE 'Mines' END as type_name
+                FROM sector_defence sd
+                JOIN universe u ON sd.sector_id = u.sector_id
+                WHERE sd.ship_id = :ship_id
+                ORDER BY sd.sector_id, sd.defence_type";
+
+        $defenses = $this->shipModel->db->fetchAll($sql, ['ship_id' => $ship['ship_id']]);
+
+        // Calculate totals
+        $totalFighters = 0;
+        $totalMines = 0;
+        foreach ($defenses as $defense) {
+            if ($defense['defence_type'] === 'F') {
+                $totalFighters += $defense['quantity'];
+            } else {
+                $totalMines += $defense['quantity'];
+            }
+        }
+
+        $data = compact('ship', 'defenses', 'totalFighters', 'totalMines');
+
+        ob_start();
+        include __DIR__ . '/../Views/defenses.php';
+        echo ob_get_clean();
+    }
+
+    /**
+     * Retrieve defenses from a sector
+     */
+    public function retrieveDefense(): void
+    {
+        $ship = $this->requireAuth();
+
+        // Verify CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!$this->session->validateCsrfToken($token)) {
+            $this->session->set('error', 'Invalid request');
+            header('Location: /defenses');
+            exit;
+        }
+
+        $defenseId = (int)($_POST['defence_id'] ?? 0);
+
+        // Get defense
+        $defense = $this->shipModel->db->fetchOne(
+            'SELECT * FROM sector_defence WHERE defence_id = :id AND ship_id = :ship_id',
+            ['id' => $defenseId, 'ship_id' => $ship['ship_id']]
+        );
+
+        if (!$defense) {
+            $this->session->set('error', 'Defense not found or not owned by you');
+            header('Location: /defenses');
+            exit;
+        }
+
+        // Check if player is in the same sector
+        if ($defense['sector_id'] != $ship['sector']) {
+            $this->session->set('error', 'You must be in the same sector to retrieve defenses');
+            header('Location: /defenses');
+            exit;
+        }
+
+        // Retrieve defenses back to ship
+        $shipColumn = $defense['defence_type'] === 'F' ? 'ship_fighters' : 'torps';
+        $this->shipModel->update((int)$ship['ship_id'], [
+            $shipColumn => $ship[$shipColumn] + $defense['quantity']
+        ]);
+
+        // Remove defense
+        $this->shipModel->db->execute(
+            'DELETE FROM sector_defence WHERE defence_id = :id',
+            ['id' => $defenseId]
+        );
+
+        $typeName = $defense['defence_type'] === 'F' ? 'fighters' : 'mines';
+        $this->session->set('message', "Retrieved {$defense['quantity']} $typeName");
+        header('Location: /defenses');
+        exit;
     }
 }

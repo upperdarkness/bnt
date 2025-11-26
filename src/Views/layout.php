@@ -194,6 +194,7 @@
                 <a href="/status">Status</a>
                 <a href="/scan">Scan</a>
                 <a href="/combat">Combat</a>
+                <a href="/defenses">Defenses</a>
                 <a href="/planets">Planets</a>
                 <a href="/messages">Messages</a>
                 <a href="/ranking">Rankings</a>

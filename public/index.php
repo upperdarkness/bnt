@@ -35,7 +35,7 @@ $bountyModel = new Bounty($db);
 
 // Initialize controllers
 $authController = new AuthController($shipModel, $session, $config);
-$gameController = new GameController($shipModel, $universeModel, $planetModel, $session, $config);
+$gameController = new GameController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config);
 $portController = new PortController($shipModel, $universeModel, $session, $config);
 $combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config);
 
@@ -59,6 +59,9 @@ $router->get('/combat', fn() => $combatController->show());
 $router->post('/combat/attack/ship/:id', fn($id) => $combatController->attackShip((int)$id));
 $router->post('/combat/attack/planet/:id', fn($id) => $combatController->attackPlanet((int)$id));
 $router->post('/combat/deploy', fn() => $combatController->deployDefense());
+
+$router->get('/defenses', fn() => $combatController->viewDefenses());
+$router->post('/defenses/retrieve', fn() => $combatController->retrieveDefense());
 
 // Dispatch request
 $method = $_SERVER['REQUEST_METHOD'];
