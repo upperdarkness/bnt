@@ -8,6 +8,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use BNT\Core\Database;
 use BNT\Core\Router;
 use BNT\Core\Session;
+use BNT\Core\AdminAuth;
 use BNT\Models\Ship;
 use BNT\Models\Universe;
 use BNT\Models\Planet;
@@ -20,6 +21,7 @@ use BNT\Controllers\PortController;
 use BNT\Controllers\CombatController;
 use BNT\Controllers\PlanetController;
 use BNT\Controllers\TeamController;
+use BNT\Controllers\AdminController;
 
 // Load configuration
 $config = require __DIR__ . '/../config/config.php';
@@ -28,6 +30,7 @@ $config = require __DIR__ . '/../config/config.php';
 $db = new Database($config);
 $session = new Session();
 $router = new Router();
+$adminAuth = new AdminAuth($session, $config);
 
 // Initialize models
 $shipModel = new Ship($db);
@@ -44,6 +47,7 @@ $portController = new PortController($shipModel, $universeModel, $session, $conf
 $combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config);
 $planetController = new PlanetController($shipModel, $planetModel, $session, $config);
 $teamController = new TeamController($shipModel, $teamModel, $session, $config);
+$adminController = new AdminController($shipModel, $universeModel, $planetModel, $teamModel, $session, $adminAuth, $config);
 
 // Define routes
 $router->get('/', fn() => $authController->showLogin());
@@ -88,6 +92,22 @@ $router->post('/teams/invitations/:id/decline', fn($id) => $teamController->decl
 $router->post('/teams/:id/messages', fn($id) => $teamController->postMessage((int)$id));
 $router->post('/teams/:id/update', fn($id) => $teamController->update((int)$id));
 $router->post('/teams/:id/disband', fn($id) => $teamController->disband((int)$id));
+
+$router->get('/admin/login', fn() => $adminController->showLogin());
+$router->post('/admin/login', fn() => $adminController->login());
+$router->get('/admin/logout', fn() => $adminController->logout());
+$router->get('/admin', fn() => $adminController->dashboard());
+$router->get('/admin/players', fn() => $adminController->players());
+$router->get('/admin/players/:id/edit', fn($id) => $adminController->editPlayer((int)$id));
+$router->post('/admin/players/:id/update', fn($id) => $adminController->updatePlayer((int)$id));
+$router->post('/admin/players/:id/delete', fn($id) => $adminController->deletePlayer((int)$id));
+$router->get('/admin/teams', fn() => $adminController->teams());
+$router->post('/admin/teams/:id/delete', fn($id) => $adminController->deleteTeam((int)$id));
+$router->get('/admin/universe', fn() => $adminController->universe());
+$router->post('/admin/universe/regenerate', fn() => $adminController->regenerateUniverse());
+$router->get('/admin/settings', fn() => $adminController->settings());
+$router->get('/admin/logs', fn() => $adminController->logs());
+$router->get('/admin/statistics', fn() => $adminController->statistics());
 
 // Dispatch request
 $method = $_SERVER['REQUEST_METHOD'];
