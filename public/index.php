@@ -9,6 +9,8 @@ use BNT\Core\Database;
 use BNT\Core\Router;
 use BNT\Core\Session;
 use BNT\Core\AdminAuth;
+use BNT\Core\Scheduler;
+use BNT\Core\SchedulerTasks;
 use BNT\Models\Ship;
 use BNT\Models\Universe;
 use BNT\Models\Planet;
@@ -60,6 +62,24 @@ $playerInfoModel = new PlayerInfo($db);
 $ibankModel = new IBank($db);
 $attackLogModel = new AttackLog($db);
 $skillModel = new Skill($db);
+
+// Initialize scheduler
+$scheduler = new Scheduler($db, $config);
+$schedulerTasks = new SchedulerTasks($db, $config);
+
+// Register scheduled tasks
+$scheduler->registerTask('turn_generation', [$schedulerTasks, 'generateTurns'], 2);
+$scheduler->registerTask('port_production', [$schedulerTasks, 'portProduction'], 2);
+$scheduler->registerTask('planet_production', [$schedulerTasks, 'planetProduction'], 2);
+$scheduler->registerTask('igb_interest', [$schedulerTasks, 'igbInterest'], 2);
+$scheduler->registerTask('ranking_update', [$schedulerTasks, 'updateRankings'], 30);
+$scheduler->registerTask('news_generation', [$schedulerTasks, 'generateNews'], 15);
+$scheduler->registerTask('fighter_degradation', [$schedulerTasks, 'degradeFighters'], 6);
+$scheduler->registerTask('cleanup', [$schedulerTasks, 'cleanup'], 60);
+
+// Run scheduler (executes only tasks that are due)
+// This runs on every page load but only executes tasks when their interval has elapsed
+$scheduler->run();
 
 // Initialize controllers
 $authController = new AuthController($shipModel, $session, $config);
