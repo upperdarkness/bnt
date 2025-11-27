@@ -9,6 +9,9 @@ use BNT\Models\Ship;
 use BNT\Models\Universe;
 use BNT\Models\Planet;
 use BNT\Models\Combat;
+use BNT\Models\AttackLog;
+use BNT\Models\Skill;
+use BNT\Models\ShipType;
 
 class CombatController
 {
@@ -17,6 +20,8 @@ class CombatController
         private Universe $universeModel,
         private Planet $planetModel,
         private Combat $combatModel,
+        private AttackLog $attackLogModel,
+        private Skill $skillModel,
         private Session $session,
         private array $config
     ) {}
@@ -122,8 +127,32 @@ class CombatController
             exit;
         }
 
+        // Get combat skill bonus
+        $skills = $this->skillModel->getSkills((int)$ship['ship_id']);
+        $combatSkillMultiplier = $this->skillModel->getCombatMultiplier($skills['combat']);
+
+        // Get ship type combat bonus
+        $shipTypeCombatMultiplier = ShipType::getCombatMultiplier($ship['ship_type']);
+
         // Execute combat
         $result = $this->combatModel->shipVsShip($ship, $target);
+
+        // Apply combat multipliers (skill + ship type) to damage dealt
+        $totalCombatMultiplier = $combatSkillMultiplier * $shipTypeCombatMultiplier;
+        if ($totalCombatMultiplier != 1.0 && $result['defender_damage'] > 0) {
+            $result['defender_damage'] = (int)($result['defender_damage'] * $totalCombatMultiplier);
+            // Recheck if target is destroyed with bonus damage
+            if ($result['defender_damage'] >= $target['armor']) {
+                $result['defender_destroyed'] = true;
+            }
+        }
+
+        // Apply ship type defense multiplier to reduce damage taken
+        $defenseMultiplier = ShipType::getDefenseMultiplier($ship['ship_type']);
+        if ($defenseMultiplier != 1.0 && $result['attacker_damage'] > 0) {
+            // Lower defense multiplier means more damage taken (inverse relationship for damage reduction)
+            $result['attacker_damage'] = (int)($result['attacker_damage'] / $defenseMultiplier);
+        }
 
         // Use turn
         $this->shipModel->useTurns((int)$ship['ship_id'], 1);
@@ -131,7 +160,16 @@ class CombatController
         // Apply results
         if ($result['escaped']) {
             $this->session->set('error', $result['message']);
-            $this->logCombat($ship['ship_id'], $targetId, 'escape', $result);
+            $this->attackLogModel->logAttack(
+                (int)$ship['ship_id'],
+                $ship['character_name'],
+                $targetId,
+                $target['character_name'],
+                'ship',
+                'escaped',
+                0,
+                (int)$ship['sector']
+            );
         } else {
             // Update torpedo count
             if ($result['torpedos_used'] > 0) {
@@ -170,7 +208,20 @@ class CombatController
                 $message .= " = $totalEarnings total!";
 
                 $this->session->set('message', $message);
-                $this->logCombat($ship['ship_id'], $targetId, 'kill', $result);
+                $this->attackLogModel->logAttack(
+                    (int)$ship['ship_id'],
+                    $ship['character_name'],
+                    $targetId,
+                    $target['character_name'],
+                    'ship',
+                    'destroyed',
+                    $result['defender_damage'],
+                    (int)$ship['sector']
+                );
+
+                // Award skill points for combat victory (3-5 points based on target strength)
+                $skillPointsEarned = min(5, max(3, (int)floor($target['rating'] / 20)));
+                $this->skillModel->awardSkillPoints((int)$ship['ship_id'], $skillPointsEarned);
             } else {
                 // Apply damage to target
                 if ($result['defender_damage'] > 0) {
@@ -178,7 +229,16 @@ class CombatController
                 }
 
                 $this->session->set('message', $result['message'] . " Damage dealt: {$result['defender_damage']}");
-                $this->logCombat($ship['ship_id'], $targetId, 'attack', $result);
+                $this->attackLogModel->logAttack(
+                    (int)$ship['ship_id'],
+                    $ship['character_name'],
+                    $targetId,
+                    $target['character_name'],
+                    'ship',
+                    'success',
+                    $result['defender_damage'],
+                    (int)$ship['sector']
+                );
             }
         }
 
@@ -229,8 +289,27 @@ class CombatController
             exit;
         }
 
+        // Get combat skill bonus
+        $skills = $this->skillModel->getSkills((int)$ship['ship_id']);
+        $combatSkillMultiplier = $this->skillModel->getCombatMultiplier($skills['combat']);
+
+        // Get ship type combat bonus
+        $shipTypeCombatMultiplier = ShipType::getCombatMultiplier($ship['ship_type']);
+
         // Execute combat
         $result = $this->combatModel->shipVsPlanet($ship, $planet);
+
+        // Apply combat multipliers (skill + ship type) to planet damage dealt
+        $totalCombatMultiplier = $combatSkillMultiplier * $shipTypeCombatMultiplier;
+        if ($totalCombatMultiplier != 1.0 && isset($result['planet_damage'])) {
+            $result['planet_damage'] = (int)($result['planet_damage'] * $totalCombatMultiplier);
+        }
+
+        // Apply ship type defense multiplier to reduce damage taken from planet
+        $defenseMultiplier = ShipType::getDefenseMultiplier($ship['ship_type']);
+        if ($defenseMultiplier != 1.0 && $result['ship_damage'] > 0) {
+            $result['ship_damage'] = (int)($result['ship_damage'] / $defenseMultiplier);
+        }
 
         // Use turns
         $this->shipModel->useTurns((int)$ship['ship_id'], 5);
@@ -264,17 +343,35 @@ class CombatController
         if ($result['planet_captured']) {
             $this->planetModel->capture($planetId, (int)$ship['ship_id']);
             $this->session->set('message', 'Planet captured!');
+            $resultType = 'destroyed';
+            $damage = $result['planet_damage'] ?? 0;
+
+            // Award skill points for planet capture
+            $this->skillModel->awardSkillPoints((int)$ship['ship_id'], 3);
         } elseif ($result['success']) {
             // Damage planet base or defenses
             if ($planet['base']) {
                 $this->planetModel->update($planetId, ['base' => false]);
             }
             $this->session->set('message', $result['message']);
+            $resultType = 'success';
+            $damage = $result['planet_damage'] ?? 0;
         } else {
             $this->session->set('error', $result['message']);
+            $resultType = 'failure';
+            $damage = 0;
         }
 
-        $this->logPlanetCombat($ship['ship_id'], $planetId, $result);
+        $this->attackLogModel->logAttack(
+            (int)$ship['ship_id'],
+            $ship['character_name'],
+            null,
+            $planet['name'] ?? "Planet {$planetId}",
+            'planet',
+            $resultType,
+            $damage,
+            (int)$ship['sector']
+        );
 
         header('Location: /combat');
         exit;
@@ -355,6 +452,18 @@ class CombatController
         if ($dvdResult['combat_occurred']) {
             $message = "Deployed $quantity $defenseTypeName. " . $dvdResult['message'];
             $this->session->set('message', $message);
+
+            // Log defense vs defense combat
+            $this->attackLogModel->logAttack(
+                (int)$ship['ship_id'],
+                $ship['character_name'],
+                null,
+                null,
+                'defense',
+                $dvdResult['success'] ?? true ? 'success' : 'failure',
+                $dvdResult['damage_dealt'] ?? 0,
+                (int)$ship['sector']
+            );
         } else {
             $this->session->set('message', "Deployed $quantity $defenseTypeName in this sector");
         }
@@ -363,36 +472,6 @@ class CombatController
         exit;
     }
 
-    /**
-     * Log combat event
-     */
-    private function logCombat(int $attackerId, int $defenderId, string $type, array $result): void
-    {
-        $data = json_encode($result);
-
-        $this->shipModel->db->execute(
-            'INSERT INTO logs (ship_id, log_type, log_data) VALUES (:id, :type, :data)',
-            ['id' => $attackerId, 'type' => 3, 'data' => $data]
-        );
-
-        $this->shipModel->db->execute(
-            'INSERT INTO logs (ship_id, log_type, log_data) VALUES (:id, :type, :data)',
-            ['id' => $defenderId, 'type' => 7, 'data' => $data]
-        );
-    }
-
-    /**
-     * Log planet combat
-     */
-    private function logPlanetCombat(int $attackerId, int $planetId, array $result): void
-    {
-        $data = json_encode($result);
-
-        $this->shipModel->db->execute(
-            'INSERT INTO logs (ship_id, log_type, log_data) VALUES (:id, :type, :data)',
-            ['id' => $attackerId, 'type' => 13, 'data' => $data]
-        );
-    }
 
     /**
      * View all player's defenses across sectors

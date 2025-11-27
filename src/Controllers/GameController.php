@@ -9,6 +9,7 @@ use BNT\Models\Ship;
 use BNT\Models\Universe;
 use BNT\Models\Planet;
 use BNT\Models\Combat;
+use BNT\Models\ShipType;
 
 class GameController
 {
@@ -57,7 +58,7 @@ class GameController
         $shipsInSector = $this->shipModel->getShipsInSector((int)$ship['sector'], (int)$ship['ship_id']);
 
         // Calculate ship capacity
-        $maxHolds = $this->calculateHolds($ship['hull']);
+        $maxHolds = $this->calculateHolds($ship['hull'], $ship['ship_type']);
         $usedHolds = $ship['ship_ore'] + $ship['ship_organics'] +
                      $ship['ship_goods'] + $ship['ship_energy'] +
                      $ship['ship_colonists'];
@@ -81,8 +82,11 @@ class GameController
             exit;
         }
 
+        // Calculate turn cost based on ship type
+        $turnCost = ShipType::getTurnCost($ship['ship_type']);
+
         // Check if player has turns
-        if ($ship['turns'] < 1) {
+        if ($ship['turns'] < $turnCost) {
             $this->session->set('error', 'Not enough turns');
             header('Location: /main');
             exit;
@@ -95,8 +99,8 @@ class GameController
             exit;
         }
 
-        // Use a turn and move
-        $this->shipModel->useTurns((int)$ship['ship_id'], 1);
+        // Use turns and move
+        $this->shipModel->useTurns((int)$ship['ship_id'], $turnCost);
         $this->shipModel->update((int)$ship['ship_id'], ['sector' => $destinationSector]);
 
         // Log movement
@@ -241,7 +245,7 @@ class GameController
         $planets = $this->planetModel->getPlayerPlanets((int)$ship['ship_id']);
 
         // Calculate capacities
-        $maxHolds = $this->calculateHolds($ship['hull']);
+        $maxHolds = $this->calculateHolds($ship['hull'], $ship['ship_type']);
         $maxEnergy = $this->calculateEnergy($ship['power']);
         $maxFighters = $this->calculateFighters($ship['computer']);
         $maxTorps = $this->calculateTorps($ship['torp_launchers']);
@@ -253,9 +257,10 @@ class GameController
         echo ob_get_clean();
     }
 
-    private function calculateHolds(int $level): int
+    private function calculateHolds(int $level, string $shipType): int
     {
-        return (int)round(pow(1.5, $level) * 100);
+        $baseCapacity = (int)round(pow(1.5, $level) * 100);
+        return ShipType::getCargoCapacity($shipType, $baseCapacity);
     }
 
     private function calculateEnergy(int $level): int

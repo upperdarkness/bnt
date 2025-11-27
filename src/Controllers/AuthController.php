@@ -6,6 +6,7 @@ namespace BNT\Controllers;
 
 use BNT\Core\Session;
 use BNT\Models\Ship;
+use BNT\Models\ShipType;
 
 class AuthController
 {
@@ -102,8 +103,13 @@ class AuthController
         $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
         $password = $_POST['password'] ?? '';
         $characterName = filter_input(INPUT_POST, 'character_name', FILTER_SANITIZE_STRING);
+        $shipType = $_POST['ship_type'] ?? ShipType::BALANCED;
 
         // Validation
+        if (!ShipType::isValid($shipType)) {
+            $shipType = ShipType::BALANCED;
+        }
+
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->session->set('error', 'Valid email is required');
             header('Location: /');
@@ -141,11 +147,13 @@ class AuthController
                 $email,
                 $password,
                 $characterName,
-                $this->config['game']
+                $this->config['game'],
+                $shipType
             );
 
+            $shipTypeName = ShipType::getInfo($shipType)['name'];
             $this->session->setUserId($shipId);
-            $this->session->set('message', 'Welcome to BlackNova Traders!');
+            $this->session->set('message', "Welcome to BlackNova Traders! Your {$shipTypeName} is ready for launch.");
             header('Location: /main');
             exit;
         } catch (\Exception $e) {

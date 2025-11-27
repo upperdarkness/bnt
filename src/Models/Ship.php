@@ -37,18 +37,26 @@ class Ship extends Model
         return $ship;
     }
 
-    public function register(string $email, string $password, string $characterName, array $config): int
+    public function register(string $email, string $password, string $characterName, array $config, string $shipType = 'balanced'): int
     {
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+        // Get ship type specific starting bonuses
+        $startingBonuses = ShipType::getStartingBonuses($shipType);
 
         $data = [
             'email' => $email,
             'password_hash' => $passwordHash,
             'character_name' => $characterName,
-            'credits' => $config['start_credits'],
-            'turns' => $config['start_turns'],
-            'ship_energy' => $config['start_energy'],
-            'ship_fighters' => $config['start_fighters'],
+            'ship_type' => $shipType,
+            'credits' => $startingBonuses['credits'] ?? $config['start_credits'],
+            'turns' => $startingBonuses['turns'] ?? $config['start_turns'],
+            'ship_energy' => $startingBonuses['ship_energy'] ?? $config['start_energy'],
+            'ship_fighters' => $startingBonuses['ship_fighters'] ?? $config['start_fighters'],
+            'ship_ore' => $startingBonuses['ship_ore'] ?? 0,
+            'ship_organics' => $startingBonuses['ship_organics'] ?? 0,
+            'ship_goods' => $startingBonuses['ship_goods'] ?? 0,
+            'torps' => $startingBonuses['torps'] ?? 0,
             'armor_pts' => $config['start_armor'],
             'sector' => 1,
         ];

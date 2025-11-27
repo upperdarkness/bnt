@@ -17,11 +17,26 @@ class Combat
 
     /**
      * Calculate if attack is successful based on engines and cloak
+     * Now includes ship type speed bonuses
      */
     public function canEscape(array $attacker, array $defender): bool
     {
-        // Defender can escape if they have better engines
-        if ($defender['engines'] > $attacker['engines']) {
+        // Apply ship type speed bonuses if ship_type is present
+        $attackerEngines = $attacker['engines'];
+        $defenderEngines = $defender['engines'];
+
+        if (isset($attacker['ship_type'])) {
+            $attackerSpeedBonus = ShipType::getSpeedBonus($attacker['ship_type']);
+            $attackerEngines = (int)($attackerEngines * $attackerSpeedBonus);
+        }
+
+        if (isset($defender['ship_type'])) {
+            $defenderSpeedBonus = ShipType::getSpeedBonus($defender['ship_type']);
+            $defenderEngines = (int)($defenderEngines * $defenderSpeedBonus);
+        }
+
+        // Defender can escape if they have better engines (with speed bonus applied)
+        if ($defenderEngines > $attackerEngines) {
             return true;
         }
 

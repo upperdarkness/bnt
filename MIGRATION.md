@@ -242,20 +242,32 @@ $logModel->create([
 
 ## What's Not Migrated
 
-Some features from the original are not yet implemented:
+Most core features from the original game have been successfully migrated and modernized. The following advanced features are not yet implemented:
 
-1. **Combat System** - Attack, defense calculations
-2. **Planet Management** - Production, colonization
-3. **Sector Defenses** - Mines and fighter placement
-4. **Teams** - Alliance system
-5. **IGB** - Intergalactic banking
-6. **Mail System** - Player messaging
-7. **Trade Routes** - Automated trading
-8. **Special Devices** - Genesis, beacons, etc.
-9. **Scheduler** - Automated maintenance tasks
-10. **Admin Panel** - Game administration
+1. **Trade Routes** - Automated trading routes
+2. **Genesis Torpedoes** - Planet creation and terraforming
+3. **Special Devices** - Beacons, warp editors, emergency warp devices
+4. **News System** - Automated news generation from game events
+5. **Scheduler** - Automated maintenance tasks (turn generation, production cycles, etc.)
 
-These can be implemented using the same patterns as existing features.
+All other major features including combat, planets, teams, banking, messaging, and rankings have been fully implemented with modern security and architecture.
+
+### Successfully Migrated Features
+
+The following features from the original game have been completely reimplemented:
+
+- ✅ **Combat System** - Ship attacks, planet attacks, defense deployment with full damage calculations
+- ✅ **Planet Management** - Colonization, production allocation, base construction, resource management
+- ✅ **Sector Defenses** - Mine and fighter deployment, defense vs defense combat
+- ✅ **Teams/Alliances** - Full team system with invitations, messaging, and management
+- ✅ **IGB** - Complete Intergalactic Bank with deposits, withdrawals, transfers, and loans
+- ✅ **Mail System** - Player-to-player messaging with inbox/sent folders
+- ✅ **Rankings** - Player and team rankings with multiple sort options
+- ✅ **Ship Upgrades** - 10 component upgrade system with exponential costs
+- ✅ **Player Profiles** - Comprehensive player information and search
+- ✅ **Attack Logs** - Complete combat history tracking
+
+These can be extended or enhanced using the same patterns as existing features.
 
 ## Extending the Game
 
