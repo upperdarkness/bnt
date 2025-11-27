@@ -15,12 +15,14 @@ use BNT\Models\Planet;
 use BNT\Models\Combat;
 use BNT\Models\Bounty;
 use BNT\Models\Team;
+use BNT\Models\Message;
 use BNT\Controllers\AuthController;
 use BNT\Controllers\GameController;
 use BNT\Controllers\PortController;
 use BNT\Controllers\CombatController;
 use BNT\Controllers\PlanetController;
 use BNT\Controllers\TeamController;
+use BNT\Controllers\MessageController;
 use BNT\Controllers\AdminController;
 
 // Load configuration
@@ -39,6 +41,7 @@ $planetModel = new Planet($db);
 $combatModel = new Combat($db);
 $bountyModel = new Bounty($db);
 $teamModel = new Team($db);
+$messageModel = new Message($db);
 
 // Initialize controllers
 $authController = new AuthController($shipModel, $session, $config);
@@ -47,6 +50,7 @@ $portController = new PortController($shipModel, $universeModel, $session, $conf
 $combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config);
 $planetController = new PlanetController($shipModel, $planetModel, $session, $config);
 $teamController = new TeamController($shipModel, $teamModel, $session, $config);
+$messageController = new MessageController($shipModel, $messageModel, $session, $config);
 $adminController = new AdminController($shipModel, $universeModel, $planetModel, $teamModel, $session, $adminAuth, $config);
 
 // Define routes
@@ -92,6 +96,14 @@ $router->post('/teams/invitations/:id/decline', fn($id) => $teamController->decl
 $router->post('/teams/:id/messages', fn($id) => $teamController->postMessage((int)$id));
 $router->post('/teams/:id/update', fn($id) => $teamController->update((int)$id));
 $router->post('/teams/:id/disband', fn($id) => $teamController->disband((int)$id));
+
+$router->get('/messages', fn() => $messageController->inbox());
+$router->get('/messages/sent', fn() => $messageController->sent());
+$router->get('/messages/compose', fn() => $messageController->compose());
+$router->post('/messages/send', fn() => $messageController->send());
+$router->get('/messages/view/:id', fn($id) => $messageController->view((int)$id));
+$router->post('/messages/:id/delete', fn($id) => $messageController->delete((int)$id));
+$router->post('/messages/mark-all-read', fn() => $messageController->markAllRead());
 
 $router->get('/admin/login', fn() => $adminController->showLogin());
 $router->post('/admin/login', fn() => $adminController->login());
