@@ -17,6 +17,7 @@ use BNT\Models\Bounty;
 use BNT\Models\Team;
 use BNT\Models\Message;
 use BNT\Models\Ranking;
+use BNT\Models\Upgrade;
 use BNT\Controllers\AuthController;
 use BNT\Controllers\GameController;
 use BNT\Controllers\PortController;
@@ -25,6 +26,7 @@ use BNT\Controllers\PlanetController;
 use BNT\Controllers\TeamController;
 use BNT\Controllers\MessageController;
 use BNT\Controllers\RankingController;
+use BNT\Controllers\UpgradeController;
 use BNT\Controllers\AdminController;
 
 // Load configuration
@@ -45,6 +47,7 @@ $bountyModel = new Bounty($db);
 $teamModel = new Team($db);
 $messageModel = new Message($db);
 $rankingModel = new Ranking($db);
+$upgradeModel = new Upgrade($db);
 
 // Initialize controllers
 $authController = new AuthController($shipModel, $session, $config);
@@ -55,6 +58,7 @@ $planetController = new PlanetController($shipModel, $planetModel, $session, $co
 $teamController = new TeamController($shipModel, $teamModel, $session, $config);
 $messageController = new MessageController($shipModel, $messageModel, $session, $config);
 $rankingController = new RankingController($rankingModel, $shipModel, $session, $config);
+$upgradeController = new UpgradeController($shipModel, $upgradeModel, $session, $config);
 $adminController = new AdminController($shipModel, $universeModel, $planetModel, $teamModel, $session, $adminAuth, $config);
 
 // Define routes
@@ -111,6 +115,10 @@ $router->post('/messages/mark-all-read', fn() => $messageController->markAllRead
 
 $router->get('/ranking', fn() => $rankingController->index());
 $router->get('/ranking/teams', fn() => $rankingController->teams());
+
+$router->get('/upgrades', fn() => $upgradeController->index());
+$router->post('/upgrades/upgrade', fn() => $upgradeController->upgrade());
+$router->post('/upgrades/downgrade', fn() => $upgradeController->downgrade());
 
 $router->get('/admin/login', fn() => $adminController->showLogin());
 $router->post('/admin/login', fn() => $adminController->login());
