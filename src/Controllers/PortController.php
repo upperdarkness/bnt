@@ -8,6 +8,7 @@ use BNT\Core\Session;
 use BNT\Models\Ship;
 use BNT\Models\Universe;
 use BNT\Models\Skill;
+use BNT\Models\ShipType;
 
 class PortController
 {
@@ -61,7 +62,7 @@ class PortController
         $prices = $this->calculatePrices($sector, $tradingConfig, $tradingBonus);
 
         // Calculate ship capacity
-        $maxHolds = $this->calculateHolds($ship['hull']);
+        $maxHolds = $this->calculateHolds($ship['hull'], $ship['ship_type']);
         $usedHolds = $ship['ship_ore'] + $ship['ship_organics'] +
                      $ship['ship_goods'] + $ship['ship_energy'] +
                      $ship['ship_colonists'];
@@ -148,7 +149,7 @@ class PortController
         }
 
         // Check cargo space
-        $maxHolds = $this->calculateHolds($ship['hull']);
+        $maxHolds = $this->calculateHolds($ship['hull'], $ship['ship_type']);
         $usedHolds = $ship['ship_ore'] + $ship['ship_organics'] +
                      $ship['ship_goods'] + $ship['ship_energy'] +
                      $ship['ship_colonists'];
@@ -224,8 +225,9 @@ class PortController
         return $prices;
     }
 
-    private function calculateHolds(int $level): int
+    private function calculateHolds(int $level, string $shipType): int
     {
-        return (int)round(pow(1.5, $level) * 100);
+        $baseCapacity = (int)round(pow(1.5, $level) * 100);
+        return ShipType::getCargoCapacity($shipType, $baseCapacity);
     }
 }

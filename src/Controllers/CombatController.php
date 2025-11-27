@@ -11,6 +11,7 @@ use BNT\Models\Planet;
 use BNT\Models\Combat;
 use BNT\Models\AttackLog;
 use BNT\Models\Skill;
+use BNT\Models\ShipType;
 
 class CombatController
 {
@@ -128,18 +129,29 @@ class CombatController
 
         // Get combat skill bonus
         $skills = $this->skillModel->getSkills((int)$ship['ship_id']);
-        $combatMultiplier = $this->skillModel->getCombatMultiplier($skills['combat']);
+        $combatSkillMultiplier = $this->skillModel->getCombatMultiplier($skills['combat']);
+
+        // Get ship type combat bonus
+        $shipTypeCombatMultiplier = ShipType::getCombatMultiplier($ship['ship_type']);
 
         // Execute combat
         $result = $this->combatModel->shipVsShip($ship, $target);
 
-        // Apply combat skill multiplier to damage dealt
-        if ($combatMultiplier > 1.0 && $result['defender_damage'] > 0) {
-            $result['defender_damage'] = (int)($result['defender_damage'] * $combatMultiplier);
+        // Apply combat multipliers (skill + ship type) to damage dealt
+        $totalCombatMultiplier = $combatSkillMultiplier * $shipTypeCombatMultiplier;
+        if ($totalCombatMultiplier != 1.0 && $result['defender_damage'] > 0) {
+            $result['defender_damage'] = (int)($result['defender_damage'] * $totalCombatMultiplier);
             // Recheck if target is destroyed with bonus damage
             if ($result['defender_damage'] >= $target['armor']) {
                 $result['defender_destroyed'] = true;
             }
+        }
+
+        // Apply ship type defense multiplier to reduce damage taken
+        $defenseMultiplier = ShipType::getDefenseMultiplier($ship['ship_type']);
+        if ($defenseMultiplier != 1.0 && $result['attacker_damage'] > 0) {
+            // Lower defense multiplier means more damage taken (inverse relationship for damage reduction)
+            $result['attacker_damage'] = (int)($result['attacker_damage'] / $defenseMultiplier);
         }
 
         // Use turn
@@ -279,14 +291,24 @@ class CombatController
 
         // Get combat skill bonus
         $skills = $this->skillModel->getSkills((int)$ship['ship_id']);
-        $combatMultiplier = $this->skillModel->getCombatMultiplier($skills['combat']);
+        $combatSkillMultiplier = $this->skillModel->getCombatMultiplier($skills['combat']);
+
+        // Get ship type combat bonus
+        $shipTypeCombatMultiplier = ShipType::getCombatMultiplier($ship['ship_type']);
 
         // Execute combat
         $result = $this->combatModel->shipVsPlanet($ship, $planet);
 
-        // Apply combat skill multiplier to planet damage dealt
-        if ($combatMultiplier > 1.0 && isset($result['planet_damage'])) {
-            $result['planet_damage'] = (int)($result['planet_damage'] * $combatMultiplier);
+        // Apply combat multipliers (skill + ship type) to planet damage dealt
+        $totalCombatMultiplier = $combatSkillMultiplier * $shipTypeCombatMultiplier;
+        if ($totalCombatMultiplier != 1.0 && isset($result['planet_damage'])) {
+            $result['planet_damage'] = (int)($result['planet_damage'] * $totalCombatMultiplier);
+        }
+
+        // Apply ship type defense multiplier to reduce damage taken from planet
+        $defenseMultiplier = ShipType::getDefenseMultiplier($ship['ship_type']);
+        if ($defenseMultiplier != 1.0 && $result['ship_damage'] > 0) {
+            $result['ship_damage'] = (int)($result['ship_damage'] / $defenseMultiplier);
         }
 
         // Use turns

@@ -2,9 +2,35 @@
 $title = 'Ship Status - BlackNova Traders';
 $showHeader = true;
 ob_start();
+
+// Get ship type information
+$shipTypeInfo = \BNT\Models\ShipType::getInfo($ship['ship_type'] ?? 'balanced');
 ?>
 
 <h2><?= htmlspecialchars($ship['character_name']) ?> - Ship Status</h2>
+
+<div style="background: rgba(15, 76, 117, 0.3); padding: 15px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.3); margin-bottom: 20px; text-align: center;">
+    <div style="font-size: 36px; margin-bottom: 8px;"><?= $shipTypeInfo['icon'] ?></div>
+    <div style="color: <?= $shipTypeInfo['color'] ?>; font-size: 20px; font-weight: bold; margin-bottom: 5px;"><?= htmlspecialchars($shipTypeInfo['name']) ?></div>
+    <div style="color: #bbb; font-size: 14px;"><?= htmlspecialchars($shipTypeInfo['description']) ?></div>
+    <div style="margin-top: 10px; font-size: 12px; color: #888;">
+        <?php if ($shipTypeInfo['cargo_multiplier'] != 1.0): ?>
+            Cargo: <?= (int)($shipTypeInfo['cargo_multiplier'] * 100) ?>% |
+        <?php endif; ?>
+        <?php if ($shipTypeInfo['turn_cost_multiplier'] != 1.0): ?>
+            Turn Cost: <?= (int)($shipTypeInfo['turn_cost_multiplier'] * 100) ?>% |
+        <?php endif; ?>
+        <?php if ($shipTypeInfo['combat_multiplier'] != 1.0): ?>
+            Combat: <?= (int)($shipTypeInfo['combat_multiplier'] * 100) ?>% |
+        <?php endif; ?>
+        <?php if ($shipTypeInfo['defense_multiplier'] != 1.0): ?>
+            Defense: <?= (int)($shipTypeInfo['defense_multiplier'] * 100) ?>% |
+        <?php endif; ?>
+        <?php if ($shipTypeInfo['speed_bonus'] != 1.0): ?>
+            Speed: <?= (int)($shipTypeInfo['speed_bonus'] * 100) ?>%
+        <?php endif; ?>
+    </div>
+</div>
 
 <div class="stat-grid">
     <div class="stat-card">
