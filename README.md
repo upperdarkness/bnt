@@ -230,10 +230,19 @@ blacknova/
 - Score calculation and player statistics
 
 #### Gameplay Features
-- **Ship Types**: Four distinct ship classes (Scout, Merchant, Warship, Balanced)
-  - Unique multipliers for cargo, turn costs, combat, and defense
-  - Type-specific starting resources and bonuses
-  - Strategic depth for different playstyles
+- **Ship Types**: Four distinct ship classes with full gameplay integration
+  - Scout, Merchant, Warship, and Balanced ship types
+  - Type-specific cargo capacity, turn costs, combat effectiveness, and speed
+  - Starting bonuses tailored to each ship class
+  - Real-time multipliers applied to all gameplay systems
+  - Ship type bonuses stack with skill system bonuses
+  - Displayed prominently on status page with detailed stats
+- **Character Skill System**: Progressive skill development
+  - Four skill types: Trading, Combat, Engineering, Leadership
+  - Earn skill points through gameplay activities
+  - Allocate points to improve specific bonuses
+  - Skills stack multiplicatively with ship type bonuses
+  - Beautiful UI showing current bonuses and upgrade costs
 - **Ship/Player Management**: Full ship status, equipment tracking, and character management
 - **Sector Navigation**: Real-time movement through the universe with turn management
 - **Port Trading**: Buy/sell commodities (ore, organics, goods, energy) with dynamic pricing
@@ -296,16 +305,28 @@ blacknova/
   - Team affiliation display
   - Combat statistics and achievements
 
+#### Background Systems
+- **Automatic Scheduler**: Background task automation without cron
+  - Turn generation every 2 minutes
+  - Port production cycles
+  - Planet production cycles
+  - IGB interest calculations
+  - Ranking updates
+  - News generation
+  - Fighter degradation
+  - Cleanup tasks
+  - Runs automatically on page loads with interval-based execution
+
 ### 🚧 Features to Implement
 
 The original game had additional features that could be added:
 
 - Trade routes (automated trading)
 - Genesis torpedoes and terraforming
-- Special devices (beacons, warp editors, etc.)
-- News system (automated news generation)
-- Scheduler for automated tasks (turn generation, production, etc.)
+- Special devices (beacons, warp editors, emergency warp, mine deflectors)
+- Enhanced news system with more event types
 - Advanced admin panel features
+- Tournament modes
 
 ## Feature Guide
 
@@ -357,18 +378,72 @@ Choose your ship class during registration to match your preferred playstyle. Ea
 - Starting Resources: 3000 credits, 150 turns, moderate cargo
 - **Strategy**: Adapt to any situation. Switch between trading and combat as needed.
 
-**Ship Type Impact**:
-- Cargo capacity affects maximum commodities you can carry
-- Turn costs determine how expensive movement is
-- Combat/defense affects battle effectiveness
-- Speed influences escape chances and initiative
-- Starting resources shape your early game strategy
+**Ship Type Impact** (Fully Integrated):
+- **Cargo Capacity**: Directly affects maximum commodities you can carry in ports and storage
+- **Turn Costs**: Movement between sectors costs different amounts based on ship type
+- **Combat Damage**: All damage dealt is multiplied by your ship's combat multiplier
+- **Defense**: All damage taken is reduced by your ship's defense multiplier
+- **Speed/Escape**: Better speed improves your chance to escape from combat
+- **Starting Resources**: Initial credits, turns, and cargo shape your early game strategy
+
+**Bonus Stacking**:
+Ship type bonuses stack multiplicatively with character skills:
+- Scout with 50 combat skill: 80% × 150% = 120% total combat effectiveness
+- Merchant with 50 trading skill: 200% cargo × (100% - 25% price bonus) = massive trading profit
+- Warship with 100 combat skill: 150% × 200% = 300% total damage output!
+- All bonuses apply in real-time to trading, movement, combat, and escape calculations
 
 **Choosing Your Type**:
-- New players: Balanced or Merchant (safer, easier to learn)
-- Aggressive players: Warship (combat-focused)
-- Experienced players: Scout (requires skill, very rewarding)
-- Economic focus: Merchant (trading powerhouse)
+- **New Players**: Balanced or Merchant (safer, easier to learn, forgiving gameplay)
+- **Aggressive Players**: Warship (combat-focused, dominate through firepower)
+- **Experienced Players**: Scout (requires skill and strategy, very rewarding efficiency)
+- **Economic Focus**: Merchant (trading powerhouse with massive cargo capacity)
+- **Min-Maxers**: Any type + complementary skills = extreme specialization
+
+### Character Skills & Progression
+
+Develop your character's expertise through gameplay to gain permanent bonuses. Skills stack with ship type multipliers for powerful combinations.
+
+**Skill Types**:
+
+**📈 Trading Skill** (0-100)
+- **Bonus**: 0.5% price improvement per level (max 50% at level 100)
+- **Effect**: Better buy prices at ports, higher sell prices
+- **How to Earn**: Trade at ports (1 point per 50,000 credits traded)
+- **Best For**: Merchant ships, economic players
+
+**⚔️ Combat Skill** (0-100)
+- **Bonus**: 1% damage increase per level (max 100% at level 100)
+- **Effect**: All combat damage doubled at max level
+- **How to Earn**: Ship combat victories (3-5 points), planet captures (3 points)
+- **Best For**: Warship ships, aggressive players
+- **Stacking**: Warship (150%) × Combat 100 (200%) = 300% total damage!
+
+**🔧 Engineering Skill** (0-100)
+- **Bonus**: 0.4% upgrade cost reduction per level (max 40% at level 100)
+- **Effect**: Ship upgrades cost significantly less
+- **How to Earn**: Upgrade ship components (1 point per 5 upgrades)
+- **Best For**: All players, especially those focusing on ship development
+
+**👑 Leadership Skill** (0-100)
+- **Bonus**: 0.25% general bonus per level (max 25% at level 100)
+- **Effect**: Improves team coordination and efficiency
+- **How to Earn**: Team activities, leadership actions
+- **Best For**: Team leaders, alliance builders
+
+**Skill Point Allocation**:
+- Visit the Skills page from the main menu
+- Spend earned skill points to increase any skill
+- Cost increases with skill level: 1 point for levels 0-9, 2 points for 10-19, etc.
+- Maximum level 100 in each skill
+- Plan your build carefully - specialization vs versatility
+
+**Skill Strategies**:
+- **Pure Trader**: Max Trading skill with Merchant ship = massive profit margins
+- **Ultimate Warrior**: Max Combat skill with Warship = devastating damage output
+- **Efficient Builder**: Max Engineering skill = affordable rapid expansion
+- **Balanced Build**: Spread points across skills for flexibility
+- **Ship Synergy**: Match skills to your ship type for maximum effectiveness
 
 ### Trading & Economy
 
