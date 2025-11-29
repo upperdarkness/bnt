@@ -46,111 +46,223 @@ ob_start();
     <!-- Ship to Planet -->
     <div style="background: rgba(15, 76, 117, 0.2); padding: 20px; border-radius: 8px;">
         <h4>Transfer to Planet</h4>
-        <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
-            <input type="hidden" name="direction" value="to_planet">
-
-            <table style="width: 100%;">
-                <tr>
-                    <th>Resource</th>
-                    <th>Ship Has</th>
-                    <th>Amount</th>
-                </tr>
-                <tr>
-                    <td>Colonists</td>
-                    <td><?= number_format($ship['ship_colonists']) ?></td>
-                    <td><input type="number" name="colonists" min="0" max="<?= (int)$ship['ship_colonists'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Fighters</td>
-                    <td><?= number_format($ship['ship_fighters']) ?></td>
-                    <td><input type="number" name="fighters" min="0" max="<?= (int)$ship['ship_fighters'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Ore</td>
-                    <td><?= number_format($ship['ship_ore']) ?></td>
-                    <td><input type="number" name="ore" min="0" max="<?= (int)$ship['ship_ore'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Organics</td>
-                    <td><?= number_format($ship['ship_organics']) ?></td>
-                    <td><input type="number" name="organics" min="0" max="<?= (int)$ship['ship_organics'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Goods</td>
-                    <td><?= number_format($ship['ship_goods']) ?></td>
-                    <td><input type="number" name="goods" min="0" max="<?= (int)$ship['ship_goods'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Energy</td>
-                    <td><?= number_format($ship['ship_energy']) ?></td>
-                    <td><input type="number" name="energy" min="0" max="<?= (int)$ship['ship_energy'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Credits</td>
-                    <td><?= number_format($ship['credits']) ?></td>
-                    <td><input type="number" name="credits" min="0" max="<?= (int)$ship['credits'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-            </table>
-            <div style="margin-top: 15px;">
-                <button type="submit" class="btn">Transfer to Planet</button>
-            </div>
-        </form>
+        <table style="width: 100%;">
+            <tr>
+                <th>Resource</th>
+                <th>Ship Has</th>
+                <th>Amount</th>
+                <th>Action</th>
+            </tr>
+            <tr>
+                <td>Colonists</td>
+                <td><?= number_format($ship['ship_colonists']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_planet">
+                        <input type="hidden" name="resource_type" value="colonists">
+                        <input type="number" name="amount" min="0" max="<?= (int)$ship['ship_colonists'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Fighters</td>
+                <td><?= number_format($ship['ship_fighters']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_planet">
+                        <input type="hidden" name="resource_type" value="fighters">
+                        <input type="number" name="amount" min="0" max="<?= (int)$ship['ship_fighters'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Ore</td>
+                <td><?= number_format($ship['ship_ore']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_planet">
+                        <input type="hidden" name="resource_type" value="ore">
+                        <input type="number" name="amount" min="0" max="<?= (int)$ship['ship_ore'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Organics</td>
+                <td><?= number_format($ship['ship_organics']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_planet">
+                        <input type="hidden" name="resource_type" value="organics">
+                        <input type="number" name="amount" min="0" max="<?= (int)$ship['ship_organics'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Goods</td>
+                <td><?= number_format($ship['ship_goods']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_planet">
+                        <input type="hidden" name="resource_type" value="goods">
+                        <input type="number" name="amount" min="0" max="<?= (int)$ship['ship_goods'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Energy</td>
+                <td><?= number_format($ship['ship_energy']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_planet">
+                        <input type="hidden" name="resource_type" value="energy">
+                        <input type="number" name="amount" min="0" max="<?= (int)$ship['ship_energy'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Credits</td>
+                <td><?= number_format($ship['credits']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_planet">
+                        <input type="hidden" name="resource_type" value="credits">
+                        <input type="number" name="amount" min="0" max="<?= (int)$ship['credits'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+        </table>
     </div>
 
     <!-- Planet to Ship -->
     <div style="background: rgba(15, 76, 117, 0.2); padding: 20px; border-radius: 8px;">
         <h4>Transfer to Ship</h4>
-        <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
-            <input type="hidden" name="direction" value="to_ship">
-
-            <table style="width: 100%;">
-                <tr>
-                    <th>Resource</th>
-                    <th>Planet Has</th>
-                    <th>Amount</th>
-                </tr>
-                <tr>
-                    <td>Colonists</td>
-                    <td><?= number_format($planet['colonists']) ?></td>
-                    <td><input type="number" name="colonists" min="0" max="<?= (int)$planet['colonists'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Fighters</td>
-                    <td><?= number_format($planet['fighters']) ?></td>
-                    <td><input type="number" name="fighters" min="0" max="<?= (int)$planet['fighters'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Ore</td>
-                    <td><?= number_format($planet['ore']) ?></td>
-                    <td><input type="number" name="ore" min="0" max="<?= (int)$planet['ore'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Organics</td>
-                    <td><?= number_format($planet['organics']) ?></td>
-                    <td><input type="number" name="organics" min="0" max="<?= (int)$planet['organics'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Goods</td>
-                    <td><?= number_format($planet['goods']) ?></td>
-                    <td><input type="number" name="goods" min="0" max="<?= (int)$planet['goods'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Energy</td>
-                    <td><?= number_format($planet['energy']) ?></td>
-                    <td><input type="number" name="energy" min="0" max="<?= (int)$planet['energy'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-                <tr>
-                    <td>Credits</td>
-                    <td><?= number_format($planet['credits']) ?></td>
-                    <td><input type="number" name="credits" min="0" max="<?= (int)$planet['credits'] ?>" value="0" style="width: 100px;"></td>
-                </tr>
-            </table>
-            <div style="margin-top: 15px;">
-                <button type="submit" class="btn">Transfer to Ship</button>
-            </div>
-        </form>
+        <table style="width: 100%;">
+            <tr>
+                <th>Resource</th>
+                <th>Planet Has</th>
+                <th>Amount</th>
+                <th>Action</th>
+            </tr>
+            <tr>
+                <td>Colonists</td>
+                <td><?= number_format($planet['colonists']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_ship">
+                        <input type="hidden" name="resource_type" value="colonists">
+                        <input type="number" name="amount" min="0" max="<?= (int)$planet['colonists'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Fighters</td>
+                <td><?= number_format($planet['fighters']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_ship">
+                        <input type="hidden" name="resource_type" value="fighters">
+                        <input type="number" name="amount" min="0" max="<?= (int)$planet['fighters'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Ore</td>
+                <td><?= number_format($planet['ore']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_ship">
+                        <input type="hidden" name="resource_type" value="ore">
+                        <input type="number" name="amount" min="0" max="<?= (int)$planet['ore'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Organics</td>
+                <td><?= number_format($planet['organics']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_ship">
+                        <input type="hidden" name="resource_type" value="organics">
+                        <input type="number" name="amount" min="0" max="<?= (int)$planet['organics'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Goods</td>
+                <td><?= number_format($planet['goods']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_ship">
+                        <input type="hidden" name="resource_type" value="goods">
+                        <input type="number" name="amount" min="0" max="<?= (int)$planet['goods'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Energy</td>
+                <td><?= number_format($planet['energy']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_ship">
+                        <input type="hidden" name="resource_type" value="energy">
+                        <input type="number" name="amount" min="0" max="<?= (int)$planet['energy'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Credits</td>
+                <td><?= number_format($planet['credits']) ?></td>
+                <td>
+                    <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <input type="hidden" name="direction" value="to_ship">
+                        <input type="hidden" name="resource_type" value="credits">
+                        <input type="number" name="amount" min="0" max="<?= (int)$planet['credits'] ?>" value="0" style="width: 100px;">
+                        <button type="submit" class="btn" style="padding: 5px 10px; margin-left: 5px;">Transfer</button>
+                    </form>
+                </td>
+                <td></td>
+            </tr>
+        </table>
     </div>
 </div>
 

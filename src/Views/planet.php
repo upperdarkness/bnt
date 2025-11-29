@@ -117,10 +117,37 @@ ob_start();
 
     <?php elseif ($planet['owner'] == $ship['ship_id']): ?>
     <!-- Your Planet -->
+    <?php if (!$isOnPlanet): ?>
     <form action="/land/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
         <button type="submit" class="btn">Land on Planet</button>
     </form>
+    <?php else: ?>
+    <div style="background: rgba(46, 204, 113, 0.2); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+        <strong>✓ On Planet Surface</strong>
+        <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+            <span>Quick Transfer Colonists:</span>
+            <?php if ($ship['ship_colonists'] > 0): ?>
+            <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                <input type="hidden" name="direction" value="to_planet">
+                <input type="hidden" name="resource_type" value="colonists">
+                <input type="number" name="amount" min="1" max="<?= (int)$ship['ship_colonists'] ?>" value="100" style="width: 80px; display: inline-block;">
+                <button type="submit" class="btn" style="padding: 5px 10px;">Drop Off</button>
+            </form>
+            <?php endif; ?>
+            <?php if ($planet['colonists'] > 0): ?>
+            <form action="/planet/transfer/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                <input type="hidden" name="direction" value="to_ship">
+                <input type="hidden" name="resource_type" value="colonists">
+                <input type="number" name="amount" min="1" max="<?= (int)$planet['colonists'] ?>" value="100" style="width: 80px; display: inline-block;">
+                <button type="submit" class="btn" style="padding: 5px 10px;">Pick Up</button>
+            </form>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
     <a href="/planet/manage/<?= (int)$planet['planet_id'] ?>" class="btn" style="background: rgba(52, 152, 219, 0.3); border-color: #3498db;">
         Manage Planet
     </a>
