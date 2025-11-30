@@ -67,7 +67,7 @@ class PortController
         $tradingBonus = $this->skillModel->getTradingBonus($skills['trading']);
 
         // Calculate port prices based on inventory
-        $prices = $this->calculatePrices($sector, $tradingConfig, $tradingBonus);
+        $prices = $this->calculatePrices($sector, $tradingConfig, $tradingBonus, $portType);
 
         // Calculate ship capacity
         $maxHolds = $this->calculateHolds($ship['hull'], $ship['ship_type']);
@@ -124,12 +124,29 @@ class PortController
             exit;
         }
 
+        $portType = $sector['port_type'];
+
+        // Validate port trading restrictions
+        // When user buys, port sells - so check if port can sell
+        if ($action === 'buy' && !$this->canPortSell($portType, $commodity)) {
+            $this->session->set('error', ucfirst($portType) . ' ports do not sell ' . $commodity);
+            header('Location: /port');
+            exit;
+        }
+
+        // When user sells, port buys - so check if port can buy
+        if ($action === 'sell' && !$this->canPortBuy($portType, $commodity)) {
+            $this->session->set('error', ucfirst($portType) . ' ports do not buy ' . $commodity . ' (they only buy ' . implode(' and ', $this->getPortBuyCommodities($portType)) . ')');
+            header('Location: /port');
+            exit;
+        }
+
         // Get trading skill bonus
         $skills = $this->skillModel->getSkills((int)$ship['ship_id']);
         $tradingBonus = $this->skillModel->getTradingBonus($skills['trading']);
 
         $tradingConfig = $this->config['trading'];
-        $prices = $this->calculatePrices($sector, $tradingConfig, $tradingBonus);
+        $prices = $this->calculatePrices($sector, $tradingConfig, $tradingBonus, $portType);
 
         if ($action === 'buy') {
             $this->buyFromPort($ship, $sector, $commodity, $amount, $prices[$commodity]['buy']);
@@ -214,28 +231,67 @@ class PortController
         $this->session->set('message', "Sold $amount $commodity for $earnings credits");
     }
 
-    private function calculatePrices(array $sector, array $tradingConfig, float $tradingBonus = 0.0): array
+    private function calculatePrices(array $sector, array $tradingConfig, float $tradingBonus = 0.0, string $portType = 'none'): array
     {
         $prices = [];
+        $allCommodities = ['ore', 'organics', 'goods', 'energy'];
 
-        foreach (['ore', 'organics', 'goods', 'energy'] as $commodity) {
+        // Get commodities this port can trade
+        $canSell = $this->getPortSellCommodities($portType);
+        $canBuy = $this->getPortBuyCommodities($portType);
+
+        foreach ($allCommodities as $commodity) {
             $config = $tradingConfig[$commodity];
             $portAmount = $sector["port_$commodity"];
+            $maxCapacity = $config['limit'];
+            $basePrice = $config['price'];
+            $priceFactor = $config['delta'];
 
-            // Port sells high when low stock, buys low when high stock
-            $sellPrice = $config['price'] + (int)(($config['rate'] - $portAmount) / $config['rate'] * $config['delta']);
-            $buyPrice = $config['price'] - (int)(($portAmount - $config['rate']) / $config['rate'] * $config['delta']);
+            // Supply & Demand Formula:
+            // Price = Base_Price + (Price_Factor × (Max_Capacity - Current_Stock) / Max_Capacity)
+            // When stock is low (high demand): price increases
+            // When stock is high (high supply): price decreases to base price
+            
+            $demandRatio = ($maxCapacity - $portAmount) / $maxCapacity;
+            $priceAdjustment = $priceFactor * $demandRatio;
+            $calculatedPrice = $basePrice + $priceAdjustment;
 
-            // Apply trading skill bonus (reduces buy price, increases sell price)
-            if ($tradingBonus > 0) {
-                $sellPrice = (int)($sellPrice * (1.0 - $tradingBonus / 100));
-                $buyPrice = (int)($buyPrice * (1.0 + $tradingBonus / 100));
+            // For commodities the port SELLS (user buys):
+            // - High supply (full stock) = low price (good for buyer)
+            // - Low supply (empty stock) = high price (bad for buyer)
+            if (in_array($commodity, $canSell)) {
+                $buyPrice = (int)$calculatedPrice;
+                
+                // Apply trading skill bonus (reduces buy price for user)
+                if ($tradingBonus > 0) {
+                    $buyPrice = (int)($buyPrice * (1.0 - $tradingBonus / 100));
+                }
+                $buyPrice = max(1, $buyPrice);
+            } else {
+                $buyPrice = 0;
+            }
+
+            // For commodities the port BUYS (user sells):
+            // - High supply (full stock) = low price (bad for seller)
+            // - Low supply (empty stock) = high price (good for seller)
+            if (in_array($commodity, $canBuy)) {
+                $sellPrice = (int)$calculatedPrice;
+                
+                // Apply trading skill bonus (increases sell price for user)
+                if ($tradingBonus > 0) {
+                    $sellPrice = (int)($sellPrice * (1.0 + $tradingBonus / 100));
+                }
+                $sellPrice = max(1, $sellPrice);
+            } else {
+                $sellPrice = 0;
             }
 
             $prices[$commodity] = [
-                'buy' => max(1, $sellPrice),
-                'sell' => max(1, $buyPrice),
-                'stock' => $portAmount
+                'buy' => $buyPrice,
+                'sell' => $sellPrice,
+                'stock' => $portAmount,
+                'canBuy' => in_array($commodity, $canBuy),
+                'canSell' => in_array($commodity, $canSell)
             ];
         }
 
@@ -246,5 +302,49 @@ class PortController
     {
         $baseCapacity = (int)round(pow(1.5, $level) * 100);
         return ShipType::getCargoCapacity($shipType, $baseCapacity);
+    }
+
+    /**
+     * Get commodities that a port can sell (the port's product type)
+     */
+    private function getPortSellCommodities(string $portType): array
+    {
+        return match ($portType) {
+            'ore' => ['ore'],
+            'organics' => ['organics'],
+            'goods' => ['goods'],
+            'energy' => ['energy'],
+            default => [] // 'none' or unknown types
+        };
+    }
+
+    /**
+     * Get commodities that a port can buy (all other types except its own)
+     */
+    private function getPortBuyCommodities(string $portType): array
+    {
+        return match ($portType) {
+            'ore' => ['organics', 'goods'],
+            'organics' => ['ore', 'goods'],
+            'goods' => ['ore', 'organics'],
+            'energy' => ['ore', 'organics', 'goods'], // Energy ports can buy all others
+            default => [] // 'none' or unknown types
+        };
+    }
+
+    /**
+     * Check if a port can sell a specific commodity
+     */
+    private function canPortSell(string $portType, string $commodity): bool
+    {
+        return in_array($commodity, $this->getPortSellCommodities($portType));
+    }
+
+    /**
+     * Check if a port can buy a specific commodity
+     */
+    private function canPortBuy(string $portType, string $commodity): bool
+    {
+        return in_array($commodity, $this->getPortBuyCommodities($portType));
     }
 }

@@ -45,10 +45,15 @@ class GameController
     {
         $ship = $this->requireAuth();
 
-        // Check if on planet
+        // If on planet, leave it automatically when accessing main
         if ($ship['on_planet']) {
-            header('Location: /planet/' . $ship['planet_id']);
-            exit;
+            // Use raw SQL with boolean literal to avoid PDO binding issues
+            $this->shipModel->getDb()->execute(
+                'UPDATE ships SET on_planet = FALSE, planet_id = 0 WHERE ship_id = :id',
+                ['id' => (int)$ship['ship_id']]
+            );
+            // Reload ship data after update
+            $ship = $this->shipModel->find((int)$ship['ship_id']);
         }
 
         // Get sector information
@@ -249,13 +254,43 @@ class GameController
             exit;
         }
 
-        // Land on planet
-        $this->shipModel->update((int)$ship['ship_id'], [
-            'on_planet' => true,
-            'planet_id' => $planetId
-        ]);
+        // Land on planet - use raw SQL with boolean literal to avoid PDO binding issues
+        $this->shipModel->getDb()->execute(
+            'UPDATE ships SET on_planet = TRUE, planet_id = :planet_id WHERE ship_id = :id',
+            ['planet_id' => $planetId, 'id' => (int)$ship['ship_id']]
+        );
 
         header('Location: /planet/' . $planetId);
+        exit;
+    }
+
+    public function leavePlanet(): void
+    {
+        $ship = $this->requireAuth();
+
+        // Verify CSRF token
+        $token = $_POST['csrf_token'] ?? '';
+        if (!$this->session->validateCsrfToken($token)) {
+            $this->session->set('error', 'Invalid request');
+            header('Location: /main');
+            exit;
+        }
+
+        // Check if player is actually on a planet
+        if (!$ship['on_planet']) {
+            $this->session->set('error', 'You are not on a planet');
+            header('Location: /main');
+            exit;
+        }
+
+        // Leave planet - use raw SQL with boolean literal to avoid PDO binding issues
+        $this->shipModel->getDb()->execute(
+            'UPDATE ships SET on_planet = FALSE, planet_id = 0 WHERE ship_id = :id',
+            ['id' => (int)$ship['ship_id']]
+        );
+
+        $this->session->set('message', 'You have left the planet');
+        header('Location: /main');
         exit;
     }
 

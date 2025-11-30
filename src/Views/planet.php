@@ -147,6 +147,12 @@ ob_start();
             <?php endif; ?>
         </div>
     </div>
+    <form action="/leave" method="post" style="display: inline; margin-bottom: 15px;">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+        <button type="submit" class="btn" style="background: rgba(52, 152, 219, 0.3); border-color: #3498db;">
+            Leave Planet
+        </button>
+    </form>
     <?php endif; ?>
     <a href="/planet/manage/<?= (int)$planet['planet_id'] ?>" class="btn" style="background: rgba(52, 152, 219, 0.3); border-color: #3498db;">
         Manage Planet

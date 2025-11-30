@@ -49,9 +49,22 @@ ob_start();
             <td style="text-transform: capitalize;"><?= htmlspecialchars($commodity) ?></td>
             <td><?= number_format($prices[$commodity]['stock']) ?></td>
             <td><?= number_format($ship["ship_$commodity"]) ?></td>
-            <td><?= number_format($prices[$commodity]['buy']) ?> cr</td>
-            <td><?= number_format($prices[$commodity]['sell']) ?> cr</td>
             <td>
+                <?php if ($prices[$commodity]['canSell']): ?>
+                    <?= number_format($prices[$commodity]['buy']) ?> cr
+                <?php else: ?>
+                    <span style="color: #888;">N/A</span>
+                <?php endif; ?>
+            </td>
+            <td>
+                <?php if ($prices[$commodity]['canBuy']): ?>
+                    <?= number_format($prices[$commodity]['sell']) ?> cr
+                <?php else: ?>
+                    <span style="color: #888;">N/A</span>
+                <?php endif; ?>
+            </td>
+            <td>
+                <?php if ($prices[$commodity]['canSell']): ?>
                 <form action="/port/trade" method="post" style="display: inline-block; margin-right: 10px;">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
                     <input type="hidden" name="action" value="buy">
@@ -59,7 +72,9 @@ ob_start();
                     <input type="number" name="amount" min="1" max="10000" value="100" style="width: 80px; display: inline-block;">
                     <button type="submit" class="btn">Buy</button>
                 </form>
+                <?php endif; ?>
 
+                <?php if ($prices[$commodity]['canBuy']): ?>
                 <form action="/port/trade" method="post" style="display: inline-block;">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
                     <input type="hidden" name="action" value="sell">
@@ -67,6 +82,11 @@ ob_start();
                     <input type="number" name="amount" min="1" max="<?= (int)$ship["ship_$commodity"] ?>" value="<?= (int)$ship["ship_$commodity"] ?>" style="width: 80px; display: inline-block;">
                     <button type="submit" class="btn">Sell</button>
                 </form>
+                <?php endif; ?>
+
+                <?php if (!$prices[$commodity]['canBuy'] && !$prices[$commodity]['canSell']): ?>
+                    <span style="color: #888; font-size: 12px;">Not available</span>
+                <?php endif; ?>
             </td>
         </tr>
         <?php endforeach; ?>

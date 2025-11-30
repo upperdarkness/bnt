@@ -61,9 +61,37 @@ return [
 
     // Trading Configuration
     'trading' => [
-        'ore' => ['price' => 11, 'delta' => 5, 'rate' => 75000, 'limit' => 100000000],
-        'organics' => ['price' => 5, 'delta' => 2, 'rate' => 5000, 'limit' => 100000000],
-        'goods' => ['price' => 15, 'delta' => 7, 'rate' => 75000, 'limit' => 100000000],
-        'energy' => ['price' => 3, 'delta' => 1, 'rate' => 75000, 'limit' => 1000000000],
+        'ore' => [
+            'price' => 11,           // Base price
+            'delta' => 5,            // Price factor (max price variation)
+            'rate' => 75000,         // Reference rate (legacy, kept for compatibility)
+            'limit' => 100000000,    // Max capacity
+            'regeneration_rate' => 0.05,  // 5% of empty space regenerated per tick
+            'consumption_rate' => 0.02,   // 2% consumed per tick
+        ],
+        'organics' => [
+            'price' => 5,
+            'delta' => 2,
+            'rate' => 5000,
+            'limit' => 100000000,
+            'regeneration_rate' => 0.05,
+            'consumption_rate' => 0.02,
+        ],
+        'goods' => [
+            'price' => 15,
+            'delta' => 7,
+            'rate' => 75000,
+            'limit' => 100000000,
+            'regeneration_rate' => 0.05,
+            'consumption_rate' => 0.02,
+        ],
+        'energy' => [
+            'price' => 3,
+            'delta' => 1,
+            'rate' => 75000,
+            'limit' => 1000000000,
+            'regeneration_rate' => 0.05,
+            'consumption_rate' => 0.02,
+        ],
     ],
 ];

@@ -109,6 +109,7 @@ $router->get('/scan', fn() => $gameController->scan());
 $router->get('/status', fn() => $gameController->status());
 $router->get('/planet/:id', fn($id) => $gameController->planet((int)$id));
 $router->post('/land/:id', fn($id) => $gameController->landOnPlanet((int)$id));
+$router->post('/leave', fn() => $gameController->leavePlanet());
 
 $router->get('/port', fn() => $portController->show());
 $router->post('/port/trade', fn() => $portController->trade());

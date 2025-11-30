@@ -35,52 +35,113 @@ class SchedulerTasks
     }
 
     /**
-     * Port production - generate commodities at ports
+     * Port production - generate and consume commodities at ports
+     * Implements regeneration (asymptotic growth) for export commodities
+     * Implements consumption (decay) for import commodities
      */
     public function portProduction(): string
     {
-        $rate = $this->config['scheduler']['ports'];
         $ports = $this->db->fetchAll(
-            "SELECT sector_id, port_type FROM universe WHERE port_type IS NOT NULL"
+            "SELECT sector_id, port_type, port_ore, port_organics, port_goods, port_energy 
+             FROM universe 
+             WHERE port_type IS NOT NULL AND port_type != 'none' AND port_type != 'special'"
         );
 
         $updated = 0;
         foreach ($ports as $port) {
             $portType = $port['port_type'];
-
-            // Determine what this port produces based on type
             $updates = [];
-            switch ($portType) {
-                case 'ore':
-                    $updates['port_ore'] = "LEAST(port_ore + $rate, 100000000)";
-                    break;
-                case 'organics':
-                    $updates['port_organics'] = "LEAST(port_organics + $rate, 100000000)";
-                    break;
-                case 'goods':
-                    $updates['port_goods'] = "LEAST(port_goods + $rate, 100000000)";
-                    break;
-                case 'energy':
-                    $updates['port_energy'] = "LEAST(port_energy + $rate, 1000000000)";
-                    break;
+
+            // Get what this port exports (sells) and imports (buys)
+            $exportCommodities = $this->getPortExportCommodities($portType);
+            $importCommodities = $this->getPortImportCommodities($portType);
+
+            // Regeneration: Ports generate their export commodity
+            // Formula: New_Stock = Current_Stock + ((Max_Capacity - Current_Stock) × Regeneration_Rate)
+            foreach ($exportCommodities as $commodity) {
+                $config = $this->config['trading'][$commodity];
+                $currentStock = (int)$port["port_$commodity"];
+                $maxCapacity = $config['limit'];
+                $regenerationRate = $config['regeneration_rate'];
+
+                // Calculate regeneration based on empty space
+                $emptySpace = $maxCapacity - $currentStock;
+                $regeneration = (int)($emptySpace * $regenerationRate);
+                $newStock = min($currentStock + $regeneration, $maxCapacity);
+
+                if ($newStock != $currentStock) {
+                    $updates["port_$commodity"] = $newStock;
+                }
             }
 
+            // Consumption: Ports consume their import commodities
+            // Formula: New_Stock = Current_Stock - (Current_Stock × Consumption_Rate)
+            foreach ($importCommodities as $commodity) {
+                $config = $this->config['trading'][$commodity];
+                $currentStock = (int)$port["port_$commodity"];
+                $consumptionRate = $config['consumption_rate'];
+
+                if ($currentStock > 0) {
+                    // Calculate consumption as percentage of current stock
+                    $consumption = (int)($currentStock * $consumptionRate);
+                    $newStock = max($currentStock - $consumption, 0);
+
+                    if ($newStock != $currentStock) {
+                        $updates["port_$commodity"] = $newStock;
+                    }
+                }
+            }
+
+            // Apply updates if any
             if (!empty($updates)) {
                 $setParts = [];
-                foreach ($updates as $col => $expr) {
-                    $setParts[] = "$col = $expr";
+                foreach ($updates as $col => $value) {
+                    $setParts[] = "$col = :$col";
                 }
                 $setClause = implode(', ', $setParts);
 
+                $params = ['sector' => $port['sector_id']];
+                foreach ($updates as $col => $value) {
+                    $params[$col] = $value;
+                }
+
                 $this->db->execute(
                     "UPDATE universe SET $setClause WHERE sector_id = :sector",
-                    ['sector' => $port['sector_id']]
+                    $params
                 );
                 $updated++;
             }
         }
 
-        return "Updated production for $updated ports";
+        return "Updated production/consumption for $updated ports";
+    }
+
+    /**
+     * Get commodities that a port exports (sells)
+     */
+    private function getPortExportCommodities(string $portType): array
+    {
+        return match ($portType) {
+            'ore' => ['ore'],
+            'organics' => ['organics'],
+            'goods' => ['goods'],
+            'energy' => ['energy'],
+            default => []
+        };
+    }
+
+    /**
+     * Get commodities that a port imports (buys)
+     */
+    private function getPortImportCommodities(string $portType): array
+    {
+        return match ($portType) {
+            'ore' => ['organics', 'goods'],
+            'organics' => ['ore', 'goods'],
+            'goods' => ['ore', 'organics'],
+            'energy' => ['ore', 'organics', 'goods'],
+            default => []
+        };
     }
 
     /**
