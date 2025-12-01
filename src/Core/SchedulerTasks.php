@@ -15,11 +15,21 @@ class SchedulerTasks
 
     /**
      * Generate new turns for all active players
+     * 
+     * @param int $cycles Number of scheduler cycles that have passed (defaults to 1)
      */
-    public function generateTurns(): string
+    public function generateTurns(int $cycles = 1): string
     {
-        $turnsToAdd = $this->config['scheduler']['turns'];
+        $turnsPerCycle = $this->config['scheduler']['turns'];
         $maxTurns = $this->config['game']['max_turns'];
+        
+        // Calculate total turns to add based on missed cycles
+        $turnsToAdd = $turnsPerCycle * $cycles;
+        
+        // Safety cap: never add more than 24 hours worth of turns at once
+        // (assuming 2 minute intervals, that's 720 cycles = 1440 turns max)
+        $maxTurnsPerUpdate = $turnsPerCycle * 720; // 24 hours worth
+        $turnsToAdd = min($turnsToAdd, $maxTurnsPerUpdate);
 
         $result = $this->db->execute(
             "UPDATE ships
@@ -30,8 +40,10 @@ class SchedulerTasks
         );
 
         $count = $this->db->fetchOne("SELECT COUNT(*) as count FROM ships WHERE ship_destroyed = FALSE")['count'];
+        
+        $cyclesInfo = $cycles > 1 ? " ($cycles cycles)" : "";
 
-        return "Added $turnsToAdd turns to $count active players";
+        return "Added $turnsToAdd turns to $count active players$cyclesInfo";
     }
 
     /**

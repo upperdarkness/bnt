@@ -11,12 +11,20 @@ class Team
     public function __construct(private Database $db) {}
 
     /**
+     * Get database instance
+     */
+    public function getDb(): Database
+    {
+        return $this->db;
+    }
+
+    /**
      * Find team by ID
      */
     public function find(int $id): ?array
     {
         $result = $this->db->fetchOne(
-            'SELECT * FROM teams WHERE team_id = :id',
+            'SELECT * FROM teams WHERE id = :id',
             ['id' => $id]
         );
 
@@ -30,8 +38,11 @@ class Team
     {
         return $this->db->fetchAll(
             'SELECT t.*,
-                    (SELECT COUNT(*) FROM ships WHERE team = t.team_id) as member_count,
-                    (SELECT character_name FROM ships WHERE ship_id = t.founder_id) as founder_name
+                    t.id as team_id,
+                    t.creator as founder_id,
+                    t.created_at as created_date,
+                    (SELECT COUNT(*) FROM ships WHERE team = t.id) as member_count,
+                    (SELECT character_name FROM ships WHERE ship_id = t.creator) as founder_name
              FROM teams t
              ORDER BY t.team_name'
         );
@@ -61,8 +72,8 @@ class Team
         }
 
         $this->db->execute(
-            'INSERT INTO teams (team_name, description, founder_id, created_date)
-             VALUES (:name, :desc, :founder, NOW())',
+            'INSERT INTO teams (team_name, description, creator)
+             VALUES (:name, :desc, :founder)',
             [
                 'name' => $name,
                 'desc' => $description,
@@ -100,25 +111,26 @@ class Team
         }
 
         if (isset($data['team_desc'])) {
-            $fields[] = 'team_desc = :team_desc';
+            $fields[] = 'description = :team_desc';
             $params['team_desc'] = $data['team_desc'];
         }
 
-        if (isset($data['team_planet_transfers'])) {
-            $fields[] = 'team_planet_transfers = :transfers';
-            $params['transfers'] = (bool)$data['team_planet_transfers'];
-        }
+        // Note: team_planet_transfers and team_credits columns don't exist in current schema
+        // if (isset($data['team_planet_transfers'])) {
+        //     $fields[] = 'team_planet_transfers = :transfers';
+        //     $params['transfers'] = (bool)$data['team_planet_transfers'];
+        // }
 
-        if (isset($data['team_credits'])) {
-            $fields[] = 'team_credits = :credits';
-            $params['credits'] = (int)$data['team_credits'];
-        }
+        // if (isset($data['team_credits'])) {
+        //     $fields[] = 'team_credits = :credits';
+        //     $params['credits'] = (int)$data['team_credits'];
+        // }
 
         if (empty($fields)) {
             return false;
         }
 
-        $sql = 'UPDATE teams SET ' . implode(', ', $fields) . ' WHERE team_id = :id';
+        $sql = 'UPDATE teams SET ' . implode(', ', $fields) . ' WHERE id = :id';
         return $this->db->execute($sql, $params);
     }
 
@@ -147,7 +159,7 @@ class Team
 
         // Delete team
         return $this->db->execute(
-            'DELETE FROM teams WHERE team_id = :id',
+            'DELETE FROM teams WHERE id = :id',
             ['id' => $teamId]
         );
     }
@@ -195,30 +207,36 @@ class Team
     public function isFounder(int $teamId, int $shipId): bool
     {
         $team = $this->find($teamId);
-        return $team && $team['founder_id'] == $shipId;
+        return $team && $team['creator'] == $shipId;
     }
 
     /**
      * Transfer team credits
+     * Note: team_credits column doesn't exist in current schema
      */
     public function addCredits(int $teamId, int $amount): bool
     {
-        return $this->db->execute(
-            'UPDATE teams SET team_credits = team_credits + :amount WHERE team_id = :id',
-            ['amount' => $amount, 'id' => $teamId]
-        );
+        // TODO: Add team_credits column to teams table if needed
+        return false;
+        // return $this->db->execute(
+        //     'UPDATE teams SET team_credits = team_credits + :amount WHERE id = :id',
+        //     ['amount' => $amount, 'id' => $teamId]
+        // );
     }
 
     /**
      * Withdraw team credits
+     * Note: team_credits column doesn't exist in current schema
      */
     public function withdrawCredits(int $teamId, int $amount): bool
     {
-        return $this->db->execute(
-            'UPDATE teams SET team_credits = team_credits - :amount
-             WHERE team_id = :id AND team_credits >= :amount',
-            ['amount' => $amount, 'id' => $teamId]
-        );
+        // TODO: Add team_credits column to teams table if needed
+        return false;
+        // return $this->db->execute(
+        //     'UPDATE teams SET team_credits = team_credits - :amount
+        //      WHERE id = :id AND team_credits >= :amount',
+        //     ['amount' => $amount, 'id' => $teamId]
+        // );
     }
 
     /**

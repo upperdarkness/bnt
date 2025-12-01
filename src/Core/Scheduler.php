@@ -44,7 +44,26 @@ class Scheduler
             if ($timeSinceLastRun >= $task['interval']) {
                 try {
                     $startTime = microtime(true);
-                    $result = call_user_func($task['handler']);
+                    
+                    // Calculate how many cycles have been missed
+                    $missedCycles = (int)floor($timeSinceLastRun / $task['interval']);
+                    // Cap at 720 cycles (24 hours) to prevent excessive processing
+                    // Individual tasks can apply their own limits
+                    $missedCycles = max(1, min($missedCycles, 720));
+                    
+                    // Pass cycle information to handler if it accepts parameters
+                    $handler = $task['handler'];
+                    if (is_array($handler) && method_exists($handler[0], $handler[1])) {
+                        $reflection = new \ReflectionMethod($handler[0], $handler[1]);
+                        if ($reflection->getNumberOfParameters() > 0) {
+                            $result = call_user_func($handler, $missedCycles);
+                        } else {
+                            $result = call_user_func($handler);
+                        }
+                    } else {
+                        $result = call_user_func($handler);
+                    }
+                    
                     $duration = round((microtime(true) - $startTime) * 1000, 2);
 
                     $this->updateLastRunTime($name, $currentTime);

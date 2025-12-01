@@ -229,6 +229,9 @@
 
         <footer>
             BlackNova Traders v2.0 | Modern PHP Edition | &copy; <?= date('Y') ?>
+            <?php if (isset($session)): ?>
+            | <a href="/admin/login" style="color: #e74c3c; text-decoration: none;">Admin</a>
+            <?php endif; ?>
         </footer>
     </div>
 </body>

@@ -33,7 +33,9 @@ class AdminController
             exit;
         }
 
-        $data = compact('session');
+        $session = $this->session;
+        $title = 'Admin Login - BlackNova Traders';
+        $showHeader = false;
 
         ob_start();
         include __DIR__ . '/../Views/admin_login.php';
@@ -102,7 +104,10 @@ class AdminController
              LIMIT 10'
         );
 
-        $data = compact('stats', 'recentPlayers', 'session', 'config');
+        $session = $this->session;
+        $config = $this->config;
+        $title = 'Admin Dashboard - BlackNova Traders';
+        $showHeader = false;
 
         ob_start();
         include __DIR__ . '/../Views/admin_dashboard.php';
@@ -130,7 +135,10 @@ class AdminController
 
         $players = $this->shipModel->getDb()->fetchAll($sql, $params);
 
-        $data = compact('players', 'search', 'session', 'config');
+        $session = $this->session;
+        $config = $this->config;
+        $title = 'Manage Players - Admin - BlackNova Traders';
+        $showHeader = false;
 
         ob_start();
         include __DIR__ . '/../Views/admin_players.php';
@@ -152,7 +160,10 @@ class AdminController
             exit;
         }
 
-        $data = compact('player', 'session', 'config');
+        $session = $this->session;
+        $config = $this->config;
+        $title = 'Edit Player - Admin - BlackNova Traders';
+        $showHeader = false;
 
         ob_start();
         include __DIR__ . '/../Views/admin_player_edit.php';
@@ -229,7 +240,10 @@ class AdminController
 
         $teams = $this->teamModel->getAll();
 
-        $data = compact('teams', 'session', 'config');
+        $session = $this->session;
+        $config = $this->config;
+        $title = 'Manage Teams - Admin - BlackNova Traders';
+        $showHeader = false;
 
         ob_start();
         include __DIR__ . '/../Views/admin_teams.php';
@@ -268,12 +282,19 @@ class AdminController
         // Get sector count
         $sectorCount = $this->universeModel->getDb()->fetchOne('SELECT COUNT(*) as count FROM universe')['count'];
 
-        // Get sample sectors
+        // Get sample sectors with planet counts
         $sectors = $this->universeModel->getDb()->fetchAll(
-            'SELECT * FROM universe ORDER BY sector_id LIMIT 20'
+            'SELECT u.*,
+                    (SELECT COUNT(*) FROM planets WHERE sector_id = u.sector_id) as planet_count
+             FROM universe u
+             ORDER BY u.sector_id
+             LIMIT 20'
         );
 
-        $data = compact('sectorCount', 'sectors', 'session', 'config');
+        $session = $this->session;
+        $config = $this->config;
+        $title = 'Universe Management - Admin - BlackNova Traders';
+        $showHeader = false;
 
         ob_start();
         include __DIR__ . '/../Views/admin_universe.php';
@@ -313,7 +334,10 @@ class AdminController
     {
         $this->adminAuth->requireAuth();
 
-        $data = compact('session', 'config');
+        $session = $this->session;
+        $config = $this->config;
+        $title = 'Settings - Admin - BlackNova Traders';
+        $showHeader = false;
 
         ob_start();
         include __DIR__ . '/../Views/admin_settings.php';
@@ -337,7 +361,10 @@ class AdminController
              LIMIT 50'
         );
 
-        $data = compact('combatLogs', 'session', 'config');
+        $session = $this->session;
+        $config = $this->config;
+        $title = 'Logs - Admin - BlackNova Traders';
+        $showHeader = false;
 
         ob_start();
         include __DIR__ . '/../Views/admin_logs.php';
@@ -364,13 +391,13 @@ class AdminController
                 'destroyed' => $this->shipModel->getDb()->fetchOne('SELECT COUNT(*) as count FROM ships WHERE ship_destroyed = true')['count'],
             ],
             'economy' => [
-                'total_credits' => $this->shipModel->getDb()->fetchOne('SELECT SUM(credits) as total FROM ships')['total'] ?? 0,
-                'avg_credits' => round($this->shipModel->getDb()->fetchOne('SELECT AVG(credits) as avg FROM ships')['avg'] ?? 0),
-                'richest' => $this->shipModel->getDb()->fetchOne('SELECT MAX(credits) as max FROM ships')['max'] ?? 0,
+                'total_credits' => (int)($this->shipModel->getDb()->fetchOne('SELECT SUM(credits) as total FROM ships')['total'] ?? 0),
+                'avg_credits' => round((float)($this->shipModel->getDb()->fetchOne('SELECT AVG(credits) as avg FROM ships')['avg'] ?? 0)),
+                'richest' => (int)($this->shipModel->getDb()->fetchOne('SELECT MAX(credits) as max FROM ships')['max'] ?? 0),
             ],
             'military' => [
-                'total_fighters' => $this->shipModel->getDb()->fetchOne('SELECT SUM(ship_fighters) as total FROM ships')['total'] ?? 0,
-                'total_defenses' => $this->shipModel->getDb()->fetchOne('SELECT SUM(quantity) as total FROM sector_defence')['total'] ?? 0,
+                'total_fighters' => (int)($this->shipModel->getDb()->fetchOne('SELECT SUM(ship_fighters) as total FROM ships')['total'] ?? 0),
+                'total_defenses' => (int)($this->shipModel->getDb()->fetchOne('SELECT SUM(quantity) as total FROM sector_defence')['total'] ?? 0),
             ],
             'planets' => [
                 'total' => $this->planetModel->getDb()->fetchOne('SELECT COUNT(*) as count FROM planets')['count'],
@@ -379,9 +406,9 @@ class AdminController
             ],
             'teams' => [
                 'total' => $this->teamModel->getDb()->fetchOne('SELECT COUNT(*) as count FROM teams')['count'],
-                'avg_members' => round($this->teamModel->getDb()->fetchOne(
+                'avg_members' => round((float)($this->teamModel->getDb()->fetchOne(
                     'SELECT AVG(member_count) as avg FROM (SELECT COUNT(*) as member_count FROM ships WHERE team != 0 GROUP BY team) as t'
-                )['avg'] ?? 0, 1),
+                )['avg'] ?? 0), 1),
             ],
         ];
 
@@ -394,7 +421,10 @@ class AdminController
              LIMIT 10'
         );
 
-        $data = compact('stats', 'topPlayers', 'session', 'config');
+        $session = $this->session;
+        $config = $this->config;
+        $title = 'Statistics - Admin - BlackNova Traders';
+        $showHeader = false;
 
         ob_start();
         include __DIR__ . '/../Views/admin_statistics.php';

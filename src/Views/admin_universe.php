@@ -102,7 +102,7 @@ ob_start();
             </td>
             <td>
                 <?php
-                $planetCount = $sector['planet_id'] ? 1 : 0;
+                $planetCount = (int)($sector['planet_count'] ?? 0);
                 echo $planetCount > 0 ? "<span style='color: #3498db;'>$planetCount</span>" : '-';
                 ?>
             </td>

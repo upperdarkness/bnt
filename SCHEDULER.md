@@ -40,6 +40,11 @@ The scheduler handles the following tasks:
 - **Function**: Adds new turns to all active players
 - **Details**: Players receive turns up to the maximum limit (2500 by default)
 - **Method**: `SchedulerTasks::generateTurns()`
+- **Missed Cycles**: Automatically accounts for periods of inactivity
+  - Calculates how many scheduler cycles were missed since last run
+  - Adds turns for all missed cycles (e.g., if 10 minutes passed, adds 5 cycles worth of turns)
+  - Safety cap: Maximum 24 hours worth of turns (1440 turns) can be added at once
+  - Prevents players from losing turns due to server downtime or low traffic
 
 ### Port Production
 - **Interval**: Every 2 minutes
@@ -210,6 +215,44 @@ FROM scheduler_tasks;
 - Adjust intervals to reduce frequency if needed
 - Optimize individual task queries in `SchedulerTasks.php`
 
+## Handling Inactivity and Missed Cycles
+
+The scheduler intelligently handles periods of inactivity (e.g., server downtime, low traffic):
+
+### How It Works
+
+1. **Cycle Calculation**: When a task runs, the scheduler calculates how many cycles were missed:
+   ```php
+   $missedCycles = floor(timeSinceLastRun / interval)
+   ```
+
+2. **Cycle Cap**: Missed cycles are capped at 720 (24 hours) to prevent excessive processing
+
+3. **Task Execution**: Tasks that accept a `$cycles` parameter receive the missed cycle count:
+   ```php
+   public function generateTurns(int $cycles = 1): string
+   {
+       $turnsToAdd = $turnsPerCycle * $cycles;
+       // ... apply turns
+   }
+   ```
+
+4. **Safety Limits**: Individual tasks can apply their own limits (e.g., turn generation caps at 24 hours worth)
+
+### Example Scenarios
+
+- **Normal Operation**: Scheduler runs every 2 minutes → 1 cycle → adds 2 turns
+- **10 Minute Gap**: 5 cycles missed → adds 10 turns (5 × 2)
+- **1 Hour Downtime**: 30 cycles missed → adds 60 turns (30 × 2)
+- **24+ Hour Downtime**: Capped at 720 cycles → adds 1440 turns (24-hour maximum)
+
+### Benefits
+
+- **Fairness**: Players don't lose turns due to server issues
+- **Automatic Recovery**: System catches up automatically when activity resumes
+- **Abuse Prevention**: Safety caps prevent excessive accumulation
+- **Backward Compatible**: Tasks without cycle parameters work normally
+
 ## Benefits of This Approach
 
 1. **No Cron Required**: Runs automatically on page loads
@@ -218,6 +261,7 @@ FROM scheduler_tasks;
 4. **Resilient**: Errors in one task don't stop others
 5. **Observable**: Full logging of all executions
 6. **Simple**: No external dependencies or setup required
+7. **Inactivity-Aware**: Automatically accounts for missed cycles during downtime
 
 ## Development
 
@@ -225,13 +269,25 @@ FROM scheduler_tasks;
 
 1. **Add task method to `src/Core/SchedulerTasks.php`**:
 ```php
+// Simple task (no cycle awareness)
 public function myNewTask(): string
 {
     // Task logic here
     // Return status message
     return "Task completed successfully";
 }
+
+// Cycle-aware task (handles missed cycles)
+public function myCycleAwareTask(int $cycles = 1): string
+{
+    // Use $cycles to scale the task appropriately
+    $amount = $baseAmount * $cycles;
+    // ... apply changes
+    return "Processed $amount items ($cycles cycles)";
+}
 ```
+
+**Note**: Tasks that accept a `$cycles` parameter will automatically receive the missed cycle count. The scheduler uses reflection to detect if a task accepts parameters.
 
 2. **Register task in `public/index.php`**:
 ```php

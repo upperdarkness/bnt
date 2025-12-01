@@ -16,7 +16,21 @@ class AdminAuth
      */
     public function isAuthenticated(): bool
     {
-        return $this->session->get('admin_authenticated') === true;
+        if ($this->session->get('admin_authenticated') !== true) {
+            return false;
+        }
+
+        // Check session timeout (default 1 hour)
+        $loginTime = $this->session->get('admin_login_time');
+        $sessionLifetime = $this->config['security']['session_lifetime'] ?? 3600;
+        
+        if ($loginTime && (time() - $loginTime) > $sessionLifetime) {
+            // Session expired
+            $this->logout();
+            return false;
+        }
+
+        return true;
     }
 
     /**
