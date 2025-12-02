@@ -195,6 +195,27 @@ ob_start();
             </div>
         </div>
     </div>
+    
+    <div style="background: rgba(155, 89, 182, 0.2); padding: 20px; border-radius: 8px; margin-top: 15px;">
+        <h4>Emergency Devices</h4>
+        <div style="background: rgba(22, 33, 62, 0.6); padding: 15px; border-radius: 8px; margin-top: 15px;">
+            <strong>Emergency Warp Drive</strong>
+            <div style="margin: 10px 0;">
+                <div>Your Stock: <?= number_format($ship['dev_emerwarp'] ?? 0) ?></div>
+                <div style="color: #9b59b6;">Price: <?= number_format($config['starbase']['emergency_warp_price'] ?? 50000) ?> cr</div>
+                <div style="font-size: 12px; color: #95a5a6; margin-top: 5px;">
+                    Automatically activates when attacked by another player, warping you to a random sector. Single-use device.
+                </div>
+            </div>
+            <form action="/port/purchase-device" method="post" style="margin-top: 10px;">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                <input type="hidden" name="device" value="emergency_warp">
+                <button type="submit" class="btn" style="background: rgba(155, 89, 182, 0.3); border-color: #9b59b6;">
+                    Purchase Emergency Warp Drive
+                </button>
+            </form>
+        </div>
+    </div>
 </div>
 <?php endif; ?>
 

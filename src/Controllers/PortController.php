@@ -557,4 +557,74 @@ class PortController
         $itemName = $item === 'fighters' ? 'fighters' : 'torpedoes';
         $this->session->set('message', "Purchased $amount $itemName for " . number_format($totalCost) . " credits");
     }
+
+    /**
+     * Purchase Emergency Warp Drive device at starbase
+     */
+    public function purchaseDevice(): void
+    {
+        $ship = $this->requireAuth();
+        
+        // Refresh ship data
+        $ship = $this->shipModel->find((int)$ship['ship_id']);
+        if (!$ship) {
+            $this->session->set('error', 'Ship not found');
+            header('Location: /main');
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /port');
+            exit;
+        }
+
+        // Verify CSRF token
+        $token = $_POST['csrf_token'] ?? '';
+        if (!$this->session->validateCsrfToken($token)) {
+            $this->session->set('error', 'Invalid request');
+            header('Location: /port');
+            exit;
+        }
+
+        $sector = $this->universeModel->getSector((int)$ship['sector']);
+        if (!$sector || $sector['port_type'] === 'none') {
+            $this->session->set('error', 'No port in this sector');
+            header('Location: /main');
+            exit;
+        }
+
+        // Check if this is a starbase
+        if (!$this->universeModel->isStarbase((int)$ship['sector'])) {
+            $this->session->set('error', 'Devices can only be purchased at starbases');
+            header('Location: /port');
+            exit;
+        }
+
+        $device = $_POST['device'] ?? '';
+        
+        if ($device !== 'emergency_warp') {
+            $this->session->set('error', 'Invalid device');
+            header('Location: /port');
+            exit;
+        }
+
+        $starbaseConfig = $this->config['starbase'] ?? [];
+        $price = $starbaseConfig['emergency_warp_price'] ?? 50000;
+
+        if ($ship['credits'] < $price) {
+            $this->session->set('error', "Not enough credits. Need " . number_format($price) . " credits.");
+            header('Location: /port');
+            exit;
+        }
+
+        // Purchase device (increment count)
+        $this->shipModel->update((int)$ship['ship_id'], [
+            'credits' => $ship['credits'] - $price,
+            'dev_emerwarp' => ($ship['dev_emerwarp'] ?? 0) + 1
+        ]);
+
+        $this->session->set('message', "Purchased Emergency Warp Drive for " . number_format($price) . " credits");
+        header('Location: /port');
+        exit;
+    }
 }

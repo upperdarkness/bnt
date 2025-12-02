@@ -45,6 +45,7 @@ return [
         'fighter_price' => 50,      // Price per fighter
         'torpedo_price' => 100,     // Price per torpedo
         'max_hull_level' => 5,      // Ships with hull above this level are towed out of sector 1
+        'emergency_warp_price' => 50000, // Price for Emergency Warp Drive device
     ],
 
     // Security Configuration

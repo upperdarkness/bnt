@@ -166,6 +166,52 @@ class CombatController
         // Execute combat
         $result = $this->combatModel->shipVsShip($ship, $target);
 
+        // Check if defender has Emergency Warp Drive and activate it if attacked
+        if (!$result['escaped'] && ($target['dev_emerwarp'] ?? 0) > 0) {
+            // Emergency Warp Drive activates!
+            $randomSector = $this->universeModel->getRandomSector((int)$target['sector']);
+            
+            if ($randomSector) {
+                // Move defender to random sector
+                $this->shipModel->update($targetId, [
+                    'sector' => $randomSector,
+                    'dev_emerwarp' => max(0, ($target['dev_emerwarp'] ?? 0) - 1) // Consume device
+                ]);
+                
+                // Create log entry for defender
+                $logData = json_encode([
+                    'action' => 'emergency_warp_activated',
+                    'from_sector' => (int)$target['sector'],
+                    'to_sector' => $randomSector,
+                    'attacker_id' => (int)$ship['ship_id'],
+                    'attacker_name' => $ship['character_name'],
+                    'reason' => 'Attacked by another player'
+                ]);
+                
+                $this->shipModel->getDb()->execute(
+                    "INSERT INTO logs (ship_id, log_type, log_data, logged_at) 
+                     VALUES (:ship_id, 100, :log_data, NOW())",
+                    ['ship_id' => $targetId, 'log_data' => $logData]
+                );
+                
+                // Log attack with special result
+                $this->attackLogModel->logAttack(
+                    (int)$ship['ship_id'],
+                    $ship['character_name'],
+                    $targetId,
+                    $target['character_name'],
+                    'ship',
+                    'emergency_warp',
+                    0,
+                    (int)$ship['sector']
+                );
+                
+                $this->session->set('message', "Target activated Emergency Warp Drive and escaped to Sector $randomSector!");
+                header('Location: /combat');
+                exit;
+            }
+        }
+
         // Apply combat multipliers (skill + ship type) to damage dealt
         $totalCombatMultiplier = $combatSkillMultiplier * $shipTypeCombatMultiplier;
         if ($totalCombatMultiplier != 1.0 && $result['defender_damage'] > 0) {

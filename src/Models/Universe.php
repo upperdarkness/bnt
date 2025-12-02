@@ -88,4 +88,23 @@ class Universe extends Model
         $sector = $this->getSector($sectorId);
         return $sector && ($sector['is_starbase'] ?? false);
     }
+
+    /**
+     * Get a random sector ID (excluding the current sector)
+     */
+    public function getRandomSector(int $excludeSectorId = 0): ?int
+    {
+        $sql = "SELECT sector_id FROM universe";
+        $params = [];
+        
+        if ($excludeSectorId > 0) {
+            $sql .= " WHERE sector_id != :exclude";
+            $params['exclude'] = $excludeSectorId;
+        }
+        
+        $sql .= " ORDER BY RANDOM() LIMIT 1";
+        
+        $result = $this->db->fetchOne($sql, $params);
+        return $result ? (int)$result['sector_id'] : null;
+    }
 }

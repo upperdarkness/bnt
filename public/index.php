@@ -116,6 +116,7 @@ $router->get('/port', fn() => $portController->show());
 $router->post('/port/trade', fn() => $portController->trade());
 $router->post('/port/colonists', fn() => $portController->colonists());
 $router->post('/port/purchase', fn() => $portController->purchase());
+$router->post('/port/purchase-device', fn() => $portController->purchaseDevice());
 
 $router->get('/combat', fn() => $combatController->show());
 $router->post('/combat/attack/ship/:id', fn($id) => $combatController->attackShip((int)$id));
