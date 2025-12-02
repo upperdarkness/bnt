@@ -79,4 +79,13 @@ class Universe extends Model
             'zone_id' => $zoneId,
         ]);
     }
+
+    /**
+     * Check if a sector is a starbase
+     */
+    public function isStarbase(int $sectorId): bool
+    {
+        $sector = $this->getSector($sectorId);
+        return $sector && ($sector['is_starbase'] ?? false);
+    }
 }

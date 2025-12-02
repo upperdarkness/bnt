@@ -37,6 +37,13 @@ return [
         'base_ore' => 10000,
         'base_organics' => 10000,
         'base_goods' => 10000,
+        'starbase_percentage' => 5.0, // Percentage of ports that should be starbases (5% default)
+    ],
+    
+    // Starbase Configuration
+    'starbase' => [
+        'fighter_price' => 50,      // Price per fighter
+        'torpedo_price' => 100,     // Price per torpedo
     ],
 
     // Security Configuration

@@ -8,7 +8,17 @@ ob_start();
 
 <div class="alert alert-info">
     Port Type: <strong><?= htmlspecialchars(ucfirst($portType)) ?></strong>
+    <?php if ($isStarbase): ?>
+    <span style="color: #2ecc71; margin-left: 15px;">🛡️ <strong>Starbase</strong> - Safe Zone</span>
+    <?php endif; ?>
 </div>
+
+<?php if ($isStarbase): ?>
+<div class="alert alert-success" style="background: rgba(46, 204, 113, 0.2); border-color: #2ecc71; margin-bottom: 20px;">
+    <strong>🛡️ Starbase Services</strong><br>
+    This is a protected starbase sector. Combat is prohibited. Ship upgrades and equipment purchases are available.
+</div>
+<?php endif; ?>
 
 <div class="stat-grid">
     <div class="stat-card">
@@ -136,6 +146,57 @@ ob_start();
         </p>
     </div>
 </div>
+
+<?php if ($isStarbase): ?>
+<div style="margin-top: 30px;">
+    <h3>🛡️ Starbase Services</h3>
+    
+    <div style="background: rgba(46, 204, 113, 0.2); padding: 20px; border-radius: 8px; margin-top: 15px;">
+        <h4>Ship Upgrades</h4>
+        <p style="margin-bottom: 15px;">Upgrade your ship components to improve performance.</p>
+        <a href="/upgrades" class="btn" style="background: rgba(46, 204, 113, 0.3); border-color: #2ecc71;">
+            Go to Ship Upgrades
+        </a>
+    </div>
+    
+    <div style="background: rgba(52, 152, 219, 0.2); padding: 20px; border-radius: 8px; margin-top: 15px;">
+        <h4>Equipment Purchase</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
+            <div style="background: rgba(22, 33, 62, 0.6); padding: 15px; border-radius: 8px;">
+                <strong>Fighters</strong>
+                <div style="margin: 10px 0;">
+                    <div>Your Stock: <?= number_format($ship['ship_fighters']) ?></div>
+                    <div style="color: #2ecc71;">Price: <?= number_format($config['starbase']['fighter_price'] ?? 50) ?> cr each</div>
+                </div>
+                <form action="/port/purchase" method="post">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                    <input type="hidden" name="item" value="fighters">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
+                        <input type="number" name="amount" min="1" max="1000" value="10" style="width: 100px;">
+                        <button type="submit" class="btn">Buy Fighters</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div style="background: rgba(22, 33, 62, 0.6); padding: 15px; border-radius: 8px;">
+                <strong>Torpedoes</strong>
+                <div style="margin: 10px 0;">
+                    <div>Your Stock: <?= number_format($ship['torps']) ?></div>
+                    <div style="color: #2ecc71;">Price: <?= number_format($config['starbase']['torpedo_price'] ?? 100) ?> cr each</div>
+                </div>
+                <form action="/port/purchase" method="post">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                    <input type="hidden" name="item" value="torpedoes">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
+                        <input type="number" name="amount" min="1" max="1000" value="10" style="width: 100px;">
+                        <button type="submit" class="btn">Buy Torpedoes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <div style="margin-top: 30px;">
     <h3>Quick Trade</h3>

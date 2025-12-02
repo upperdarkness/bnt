@@ -8,8 +8,8 @@ ob_start();
 <?php if ($isStarbaseSector): ?>
 <div class="alert alert-success" style="background: rgba(46, 204, 113, 0.3); border-color: #2ecc71; margin-bottom: 20px;">
     <strong>🛡️ Starbase Sector</strong><br>
-    You are in Sector 1, a protected starbase sector. No combat, attacks, or defense deployment is allowed here.
-    You are completely safe from enemy attacks while in this sector.
+    You are in a protected starbase sector. No combat, attacks, or defense deployment is allowed here.
+    You are completely safe from enemy attacks while in this sector. Ship upgrades and equipment purchases are available.
 </div>
 <?php endif; ?>
 

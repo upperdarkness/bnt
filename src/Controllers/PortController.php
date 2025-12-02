@@ -9,6 +9,7 @@ use BNT\Models\Ship;
 use BNT\Models\Universe;
 use BNT\Models\Skill;
 use BNT\Models\ShipType;
+use BNT\Models\Upgrade;
 
 class PortController
 {
@@ -61,6 +62,7 @@ class PortController
 
         $portType = $sector['port_type'];
         $tradingConfig = $this->config['trading'];
+        $isStarbase = $this->universeModel->isStarbase((int)$ship['sector']);
 
         // Get trading skill bonus
         $skills = $this->skillModel->getSkills((int)$ship['ship_id']);
@@ -75,12 +77,19 @@ class PortController
                      $ship['ship_goods'] + $ship['ship_energy'] +
                      $ship['ship_colonists'];
 
+        // Get upgrade info if starbase
+        $upgradeInfo = null;
+        if ($isStarbase) {
+            $upgradeModel = new Upgrade($this->universeModel->getDb());
+            $upgradeInfo = $upgradeModel->getUpgradeInfo($ship, $this->config);
+        }
+
         $session = $this->session;
         $title = 'Port - BlackNova Traders';
         $showHeader = true;
         
         // Extract variables to make them available to the view
-        extract(compact('ship', 'sector', 'portType', 'prices', 'maxHolds', 'usedHolds', 'session', 'title', 'showHeader'));
+        extract(compact('ship', 'sector', 'portType', 'prices', 'maxHolds', 'usedHolds', 'isStarbase', 'upgradeInfo', 'session', 'title', 'showHeader', 'config'));
 
         ob_start();
         include __DIR__ . '/../Views/port.php';
@@ -459,5 +468,93 @@ class PortController
         ]);
 
         $this->session->set('message', "Unloaded $amount colonists to port");
+    }
+
+    /**
+     * Purchase fighters or torpedoes at starbase
+     */
+    public function purchase(): void
+    {
+        $ship = $this->requireAuth();
+        
+        // Refresh ship data
+        $ship = $this->shipModel->find((int)$ship['ship_id']);
+        if (!$ship) {
+            $this->session->set('error', 'Ship not found');
+            header('Location: /main');
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /port');
+            exit;
+        }
+
+        // Verify CSRF token
+        $token = $_POST['csrf_token'] ?? '';
+        if (!$this->session->validateCsrfToken($token)) {
+            $this->session->set('error', 'Invalid request');
+            header('Location: /port');
+            exit;
+        }
+
+        $sector = $this->universeModel->getSector((int)$ship['sector']);
+        if (!$sector || $sector['port_type'] === 'none') {
+            $this->session->set('error', 'No port in this sector');
+            header('Location: /main');
+            exit;
+        }
+
+        // Check if this is a starbase
+        if (!$this->universeModel->isStarbase((int)$ship['sector'])) {
+            $this->session->set('error', 'Equipment can only be purchased at starbases');
+            header('Location: /port');
+            exit;
+        }
+
+        $item = $_POST['item'] ?? '';
+        $amount = max(0, (int)($_POST['amount'] ?? 0));
+
+        if (!in_array($item, ['fighters', 'torpedoes']) || $amount <= 0) {
+            $this->session->set('error', 'Invalid purchase parameters');
+            header('Location: /port');
+            exit;
+        }
+
+        $this->purchaseEquipment($ship, $item, $amount);
+        header('Location: /port');
+        exit;
+    }
+
+    /**
+     * Purchase fighters or torpedoes
+     */
+    private function purchaseEquipment(array $ship, string $item, int $amount): void
+    {
+        $starbaseConfig = $this->config['starbase'] ?? [];
+        $pricePerUnit = $item === 'fighters' 
+            ? ($starbaseConfig['fighter_price'] ?? 50)
+            : ($starbaseConfig['torpedo_price'] ?? 100);
+        
+        $totalCost = $amount * $pricePerUnit;
+
+        if ($ship['credits'] < $totalCost) {
+            $this->session->set('error', "Not enough credits. Need $totalCost credits.");
+            return;
+        }
+
+        // Update ship
+        $updates = ['credits' => $ship['credits'] - $totalCost];
+        
+        if ($item === 'fighters') {
+            $updates['ship_fighters'] = $ship['ship_fighters'] + $amount;
+        } else {
+            $updates['torps'] = $ship['torps'] + $amount;
+        }
+
+        $this->shipModel->update((int)$ship['ship_id'], $updates);
+
+        $itemName = $item === 'fighters' ? 'fighters' : 'torpedoes';
+        $this->session->set('message', "Purchased $amount $itemName for " . number_format($totalCost) . " credits");
     }
 }

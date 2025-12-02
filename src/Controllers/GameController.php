@@ -69,7 +69,7 @@ class GameController
                      $ship['ship_colonists'];
 
         // Check if in starbase sector
-        $isStarbaseSector = ($ship['sector'] == 1);
+        $isStarbaseSector = $this->universeModel->isStarbase((int)$ship['sector']);
         
         $session = $this->session;
         $title = 'Main - BlackNova Traders';

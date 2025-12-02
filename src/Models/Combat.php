@@ -267,8 +267,9 @@ class Combat
             'message' => '',
         ];
 
-        // Starbase sector (Sector 1) is protected - no mines can attack
-        if ($sectorId == 1) {
+        // Starbase sectors are protected - no mines can attack
+        $sector = $this->db->fetchOne('SELECT is_starbase FROM universe WHERE sector_id = :id', ['id' => $sectorId]);
+        if ($sector && ($sector['is_starbase'] ?? false)) {
             return $result;
         }
 
@@ -317,8 +318,9 @@ class Combat
             'message' => '',
         ];
 
-        // Starbase sector (Sector 1) is protected - no fighters can attack
-        if ($sectorId == 1) {
+        // Starbase sectors are protected - no fighters can attack
+        $sector = $this->db->fetchOne('SELECT is_starbase FROM universe WHERE sector_id = :id', ['id' => $sectorId]);
+        if ($sector && ($sector['is_starbase'] ?? false)) {
             return $result;
         }
 
@@ -454,8 +456,9 @@ class Combat
             'message' => '',
         ];
 
-        // Starbase sector (Sector 1) is protected - no defense combat
-        if ($sectorId == 1) {
+        // Starbase sectors are protected - no defense combat
+        $sector = $this->db->fetchOne('SELECT is_starbase FROM universe WHERE sector_id = :id', ['id' => $sectorId]);
+        if ($sector && ($sector['is_starbase'] ?? false)) {
             return $result;
         }
 

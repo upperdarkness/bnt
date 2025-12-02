@@ -90,7 +90,7 @@ class CombatController
         $showHeader = true;
         
         // Check if in starbase sector (no combat allowed)
-        $isStarbaseSector = ($ship['sector'] == 1);
+        $isStarbaseSector = $this->universeModel->isStarbase((int)$ship['sector']);
         
         // Extract variables to make them available to the view
         extract(compact('ship', 'sector', 'shipsInSector', 'planets', 'defenses', 'myFighters', 'totalMyFighters', 'isStarbaseSector', 'session', 'title', 'showHeader'));
@@ -108,8 +108,8 @@ class CombatController
         $ship = $this->requireAuth();
 
         // Check if in starbase sector (no combat allowed)
-        if ($ship['sector'] == 1) {
-            $this->session->set('error', 'Combat is not allowed in the starbase sector (Sector 1)');
+        if ($this->universeModel->isStarbase((int)$ship['sector'])) {
+            $this->session->set('error', 'Combat is not allowed in starbase sectors');
             header('Location: /combat');
             exit;
         }
@@ -283,8 +283,8 @@ class CombatController
         $ship = $this->requireAuth();
 
         // Check if in starbase sector (no combat allowed)
-        if ($ship['sector'] == 1) {
-            $this->session->set('error', 'Combat is not allowed in the starbase sector (Sector 1)');
+        if ($this->universeModel->isStarbase((int)$ship['sector'])) {
+            $this->session->set('error', 'Combat is not allowed in starbase sectors');
             header('Location: /combat');
             exit;
         }
@@ -421,8 +421,8 @@ class CombatController
         $ship = $this->requireAuth();
 
         // Check if in starbase sector (no defenses allowed)
-        if ($ship['sector'] == 1) {
-            $this->session->set('error', 'Defenses cannot be deployed in the starbase sector (Sector 1)');
+        if ($this->universeModel->isStarbase((int)$ship['sector'])) {
+            $this->session->set('error', 'Defenses cannot be deployed in starbase sectors');
             header('Location: /combat');
             exit;
         }

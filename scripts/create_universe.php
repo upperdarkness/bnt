@@ -22,9 +22,14 @@ $numPlanets = (int)($argv[2] ?? 200);
 
 echo "Creating $numSectors sectors...\n";
 
+// Load config for starbase percentage
+$config = require __DIR__ . '/../config/config.php';
+$starbasePercentage = $config['game']['starbase_percentage'] ?? 5.0;
+
 // Create sectors
 $portTypes = ['none', 'none', 'none', 'ore', 'organics', 'goods', 'energy'];
 $sectorIds = [];
+$portsCreated = 0; // Track ports (non-none) for starbase assignment
 
 // Check if Sector 1 already exists (starbase), start from sector 2 if so
 $existingSector1 = $db->query("SELECT sector_id FROM universe WHERE sector_id = 1", [])->fetch();
@@ -47,8 +52,30 @@ for ($i = $startFrom; $i <= $numSectors; $i++) {
     // Ports start with some colonists
     $portColonists = ($portType !== 'none') ? random_int(5000, 50000) : 0;
 
-    $sql = "INSERT INTO universe (sector_name, port_type, port_ore, port_organics, port_goods, port_energy, port_colonists, zone_id)
-            VALUES (:name, :port_type, :ore, :organics, :goods, :energy, :colonists, :zone)
+    // Determine if this should be a starbase
+    // Sector 1 is always a starbase, others are randomly assigned based on percentage
+    $isStarbase = false;
+    if ($i == 1) {
+        $isStarbase = true; // Sector 1 is always a starbase
+    } elseif ($portType !== 'none') {
+        // Only ports (not empty sectors) can be starbases
+        $portsCreated++;
+        // Calculate if this port should be a starbase based on percentage
+        // We want approximately X% of ports to be starbases
+        $targetStarbases = (int)ceil($portsCreated * ($starbasePercentage / 100));
+        $currentStarbases = $db->query("SELECT COUNT(*) as count FROM universe WHERE is_starbase = TRUE AND sector_id > 1", [])->fetch()['count'] ?? 0;
+        
+        if ($currentStarbases < $targetStarbases) {
+            // Random chance based on remaining needed starbases
+            $remainingNeeded = $targetStarbases - $currentStarbases;
+            $remainingPorts = max(1, ($numSectors - $i) / 4); // Approximate remaining ports (1/4 are ports)
+            $chance = min(1.0, $remainingNeeded / max(1, $remainingPorts));
+            $isStarbase = (mt_rand() / mt_getrandmax()) < $chance;
+        }
+    }
+
+    $sql = "INSERT INTO universe (sector_name, port_type, port_ore, port_organics, port_goods, port_energy, port_colonists, is_starbase, zone_id)
+            VALUES (:name, :port_type, :ore, :organics, :goods, :energy, :colonists, :is_starbase, :zone)
             RETURNING sector_id";
 
     $result = $db->query($sql, [
@@ -59,6 +86,7 @@ for ($i = $startFrom; $i <= $numSectors; $i++) {
         'goods' => $initialInventory['goods'],
         'energy' => $initialInventory['energy'],
         'colonists' => $portColonists,
+        'is_starbase' => $isStarbase,
         'zone' => 1,
     ]);
 
