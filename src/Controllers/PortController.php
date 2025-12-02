@@ -85,6 +85,7 @@ class PortController
         }
 
         $session = $this->session;
+        $config = $this->config;
         $title = 'Port - BlackNova Traders';
         $showHeader = true;
         
