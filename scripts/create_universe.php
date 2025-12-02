@@ -44,8 +44,11 @@ for ($i = $startFrom; $i <= $numSectors; $i++) {
         'energy' => ($portType === 'energy') ? 150000 : random_int(50000, 100000),
     ];
 
-    $sql = "INSERT INTO universe (sector_name, port_type, port_ore, port_organics, port_goods, port_energy, zone_id)
-            VALUES (:name, :port_type, :ore, :organics, :goods, :energy, :zone)
+    // Ports start with some colonists
+    $portColonists = ($portType !== 'none') ? random_int(5000, 50000) : 0;
+
+    $sql = "INSERT INTO universe (sector_name, port_type, port_ore, port_organics, port_goods, port_energy, port_colonists, zone_id)
+            VALUES (:name, :port_type, :ore, :organics, :goods, :energy, :colonists, :zone)
             RETURNING sector_id";
 
     $result = $db->query($sql, [
@@ -55,6 +58,7 @@ for ($i = $startFrom; $i <= $numSectors; $i++) {
         'organics' => $initialInventory['organics'],
         'goods' => $initialInventory['goods'],
         'energy' => $initialInventory['energy'],
+        'colonists' => $portColonists,
         'zone' => 1,
     ]);
 

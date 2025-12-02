@@ -347,4 +347,117 @@ class PortController
     {
         return in_array($commodity, $this->getPortBuyCommodities($portType));
     }
+
+    /**
+     * Handle colonists loading/unloading at port
+     */
+    public function colonists(): void
+    {
+        $ship = $this->requireAuth();
+        
+        // Refresh ship data
+        $ship = $this->shipModel->find((int)$ship['ship_id']);
+        if (!$ship) {
+            $this->session->set('error', 'Ship not found');
+            header('Location: /main');
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /port');
+            exit;
+        }
+
+        // Verify CSRF token
+        $token = $_POST['csrf_token'] ?? '';
+        if (!$this->session->validateCsrfToken($token)) {
+            $this->session->set('error', 'Invalid request');
+            header('Location: /port');
+            exit;
+        }
+
+        $sector = $this->universeModel->getSector((int)$ship['sector']);
+        if (!$sector || $sector['port_type'] === 'none') {
+            $this->session->set('error', 'No port in this sector');
+            header('Location: /main');
+            exit;
+        }
+
+        $action = $_POST['action'] ?? '';
+        $amount = max(0, (int)($_POST['amount'] ?? 0));
+
+        if (!in_array($action, ['load', 'unload']) || $amount <= 0) {
+            $this->session->set('error', 'Invalid parameters');
+            header('Location: /port');
+            exit;
+        }
+
+        if ($action === 'load') {
+            $this->loadColonists($ship, $sector, $amount);
+        } else {
+            $this->unloadColonists($ship, $sector, $amount);
+        }
+
+        header('Location: /port');
+        exit;
+    }
+
+    /**
+     * Load colonists from port onto ship
+     */
+    private function loadColonists(array $ship, array $sector, int $amount): void
+    {
+        $portColonists = (int)($sector['port_colonists'] ?? 0);
+
+        if ($portColonists < $amount) {
+            $this->session->set('error', 'Port does not have enough colonists');
+            return;
+        }
+
+        // Check cargo space
+        $maxHolds = $this->calculateHolds($ship['hull'], $ship['ship_type']);
+        $usedHolds = $ship['ship_ore'] + $ship['ship_organics'] +
+                     $ship['ship_goods'] + $ship['ship_energy'] +
+                     $ship['ship_colonists'];
+
+        if ($usedHolds + $amount > $maxHolds) {
+            $this->session->set('error', 'Not enough cargo space');
+            return;
+        }
+
+        // Execute transfer
+        $this->universeModel->update((int)$sector['sector_id'], [
+            'port_colonists' => $portColonists - $amount
+        ]);
+
+        $this->shipModel->update((int)$ship['ship_id'], [
+            'ship_colonists' => $ship['ship_colonists'] + $amount
+        ]);
+
+        $this->session->set('message', "Loaded $amount colonists from port");
+    }
+
+    /**
+     * Unload colonists from ship to port
+     */
+    private function unloadColonists(array $ship, array $sector, int $amount): void
+    {
+        if ($ship['ship_colonists'] < $amount) {
+            $this->session->set('error', 'You do not have enough colonists');
+            return;
+        }
+
+        $portColonists = (int)($sector['port_colonists'] ?? 0);
+
+        // Execute transfer
+        $this->universeModel->update((int)$sector['sector_id'], [
+            'port_colonists' => $portColonists + $amount
+        ]);
+
+        $this->shipModel->update((int)$ship['ship_id'], [
+            'ship_colonists' => $ship['ship_colonists'] - $amount
+        ]);
+
+        $this->session->set('message', "Unloaded $amount colonists to port");
+    }
 }

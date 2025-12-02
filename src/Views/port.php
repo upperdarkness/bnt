@@ -94,6 +94,50 @@ ob_start();
 </table>
 
 <div style="margin-top: 30px;">
+    <h3>Colonists</h3>
+    <div style="background: rgba(46, 204, 113, 0.2); padding: 20px; border-radius: 8px; margin-top: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div>
+                <strong>Port Colonists:</strong> <?= number_format($sector['port_colonists'] ?? 0) ?>
+            </div>
+            <div>
+                <strong>Your Colonists:</strong> <?= number_format($ship['ship_colonists']) ?>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <?php if (($sector['port_colonists'] ?? 0) > 0): ?>
+            <form action="/port/colonists" method="post" style="display: inline-block;">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                <input type="hidden" name="action" value="load">
+                <label style="display: block; margin-bottom: 5px; color: #2ecc71;">Load Colonists from Port</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" name="amount" min="1" max="<?= min(10000, (int)($sector['port_colonists'] ?? 0)) ?>" value="100" style="width: 100px; display: inline-block;">
+                    <button type="submit" class="btn" style="background: rgba(46, 204, 113, 0.3); border-color: #2ecc71;">Load</button>
+                </div>
+            </form>
+            <?php endif; ?>
+            
+            <?php if ($ship['ship_colonists'] > 0): ?>
+            <form action="/port/colonists" method="post" style="display: inline-block;">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                <input type="hidden" name="action" value="unload">
+                <label style="display: block; margin-bottom: 5px; color: #3498db;">Unload Colonists to Port</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" name="amount" min="1" max="<?= (int)$ship['ship_colonists'] ?>" value="<?= min(100, (int)$ship['ship_colonists']) ?>" style="width: 100px; display: inline-block;">
+                    <button type="submit" class="btn">Unload</button>
+                </div>
+            </form>
+            <?php endif; ?>
+        </div>
+        
+        <p style="margin-top: 15px; color: #7f8c8d; font-size: 12px;">
+            Colonists can be transported to colonize planets or transferred to other ports. Each colonist takes 1 cargo space.
+        </p>
+    </div>
+</div>
+
+<div style="margin-top: 30px;">
     <h3>Quick Trade</h3>
     <p>Enter the amount and click Buy or Sell to trade.</p>
 

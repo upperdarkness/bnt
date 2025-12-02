@@ -113,6 +113,7 @@ $router->post('/leave', fn() => $gameController->leavePlanet());
 
 $router->get('/port', fn() => $portController->show());
 $router->post('/port/trade', fn() => $portController->trade());
+$router->post('/port/colonists', fn() => $portController->colonists());
 
 $router->get('/combat', fn() => $combatController->show());
 $router->post('/combat/attack/ship/:id', fn($id) => $combatController->attackShip((int)$id));

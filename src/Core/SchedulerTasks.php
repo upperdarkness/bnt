@@ -54,7 +54,7 @@ class SchedulerTasks
     public function portProduction(): string
     {
         $ports = $this->db->fetchAll(
-            "SELECT sector_id, port_type, port_ore, port_organics, port_goods, port_energy 
+            "SELECT sector_id, port_type, port_ore, port_organics, port_goods, port_energy, port_colonists 
              FROM universe 
              WHERE port_type IS NOT NULL AND port_type != 'none' AND port_type != 'special'"
         );
@@ -102,6 +102,20 @@ class SchedulerTasks
                         $updates["port_$commodity"] = $newStock;
                     }
                 }
+            }
+
+            // Colonist generation: Ports generate colonists over time
+            // Uses regeneration formula similar to commodities
+            $currentColonists = (int)($port['port_colonists'] ?? 0);
+            $maxColonists = 100000; // Maximum colonists at a port
+            $colonistRegenerationRate = 0.02; // 2% of empty space per tick
+            
+            $emptySpace = $maxColonists - $currentColonists;
+            $colonistGrowth = (int)($emptySpace * $colonistRegenerationRate);
+            $newColonists = min($currentColonists + $colonistGrowth, $maxColonists);
+
+            if ($newColonists != $currentColonists) {
+                $updates['port_colonists'] = $newColonists;
             }
 
             // Apply updates if any
