@@ -523,6 +523,86 @@ class AdminController
     }
 
     /**
+     * Create planet in sector
+     */
+    public function createPlanet(int $sectorId): void
+    {
+        $this->adminAuth->requireAuth();
+
+        $token = $_POST['csrf_token'] ?? '';
+        if (!$this->session->validateCsrfToken($token)) {
+            $this->session->set('error', 'Invalid request');
+            header('Location: /admin/universe/sector/' . $sectorId);
+            exit;
+        }
+
+        $sector = $this->universeModel->getSector($sectorId);
+        if (!$sector) {
+            $this->session->set('error', 'Sector not found');
+            header('Location: /admin/universe');
+            exit;
+        }
+
+        $planetName = trim($_POST['planet_name'] ?? '');
+        if (empty($planetName)) {
+            $this->session->set('error', 'Planet name is required');
+            header('Location: /admin/universe/sector/' . $sectorId);
+            exit;
+        }
+
+        // Create planet
+        $planetId = $this->planetModel->createPlanet($planetName, $sectorId, 0);
+        $this->session->set('message', "Planet '$planetName' created in Sector $sectorId");
+
+        header('Location: /admin/universe/sector/' . $sectorId);
+        exit;
+    }
+
+    /**
+     * Delete planet (only if not owned by a player)
+     */
+    public function deletePlanet(int $sectorId, int $planetId): void
+    {
+        $this->adminAuth->requireAuth();
+
+        $token = $_POST['csrf_token'] ?? '';
+        if (!$this->session->validateCsrfToken($token)) {
+            $this->session->set('error', 'Invalid request');
+            header('Location: /admin/universe/sector/' . $sectorId);
+            exit;
+        }
+
+        $planet = $this->planetModel->find($planetId);
+        if (!$planet) {
+            $this->session->set('error', 'Planet not found');
+            header('Location: /admin/universe/sector/' . $sectorId);
+            exit;
+        }
+
+        if ($planet['sector_id'] != $sectorId) {
+            $this->session->set('error', 'Planet does not belong to this sector');
+            header('Location: /admin/universe/sector/' . $sectorId);
+            exit;
+        }
+
+        // Check if planet is owned by a player
+        if ($planet['owner'] != 0) {
+            $owner = $this->shipModel->find($planet['owner']);
+            $ownerName = $owner ? $owner['character_name'] : 'Unknown';
+            $this->session->set('error', "Cannot delete planet owned by player: $ownerName");
+            header('Location: /admin/universe/sector/' . $sectorId);
+            exit;
+        }
+
+        // Delete planet
+        $this->planetModel->delete($planetId);
+        $this->session->set('message', "Planet '{$planet['planet_name']}' deleted");
+
+        header('Location: /admin/universe/sector/' . $sectorId);
+        exit;
+    }
+
+    /**
      * Regenerate universe
      */
     public function regenerateUniverse(): void
