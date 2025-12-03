@@ -48,6 +48,9 @@ ob_start();
             <?php if ($link['port_type'] !== 'none'): ?>
             <br><small>[<?= htmlspecialchars($link['port_type']) ?>]</small>
             <?php endif; ?>
+            <?php if ($link['is_starbase'] ?? false): ?>
+            <br><small style="color: #2ecc71;">🛡️ Starbase</small>
+            <?php endif; ?>
         </button>
     </form>
     <?php endforeach; ?>

@@ -16,7 +16,7 @@ class Universe extends Model
 
     public function getLinkedSectors(int $sectorId): array
     {
-        $sql = "SELECT u.sector_id, u.sector_name, u.port_type, u.beacon
+        $sql = "SELECT u.sector_id, u.sector_name, u.port_type, u.beacon, u.is_starbase
                 FROM universe u
                 INNER JOIN links l ON u.sector_id = l.link_dest
                 WHERE l.link_start = :sector_id
