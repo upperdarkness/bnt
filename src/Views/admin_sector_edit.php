@@ -65,13 +65,19 @@ ob_start();
 
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px;">Port Type:</label>
+                    <?php
+                    $currentPortType = $sector['port_type'] ?? 'none';
+                    if (empty($currentPortType) || $currentPortType === '') {
+                        $currentPortType = 'none';
+                    }
+                    ?>
                     <select name="port_type" style="width: 100%; padding: 8px;">
-                        <option value="none" <?= ($sector['port_type'] ?? 'none') === 'none' ? 'selected' : '' ?>>None</option>
-                        <option value="ore" <?= ($sector['port_type'] ?? '') === 'ore' ? 'selected' : '' ?>>Ore</option>
-                        <option value="organics" <?= ($sector['port_type'] ?? '') === 'organics' ? 'selected' : '' ?>>Organics</option>
-                        <option value="goods" <?= ($sector['port_type'] ?? '') === 'goods' ? 'selected' : '' ?>>Goods</option>
-                        <option value="energy" <?= ($sector['port_type'] ?? '') === 'energy' ? 'selected' : '' ?>>Energy</option>
-                        <option value="special" <?= ($sector['port_type'] ?? '') === 'special' ? 'selected' : '' ?>>Special</option>
+                        <option value="none" <?= $currentPortType === 'none' ? 'selected' : '' ?>>None</option>
+                        <option value="ore" <?= $currentPortType === 'ore' ? 'selected' : '' ?>>Ore</option>
+                        <option value="organics" <?= $currentPortType === 'organics' ? 'selected' : '' ?>>Organics</option>
+                        <option value="goods" <?= $currentPortType === 'goods' ? 'selected' : '' ?>>Goods</option>
+                        <option value="energy" <?= $currentPortType === 'energy' ? 'selected' : '' ?>>Energy</option>
+                        <option value="special" <?= $currentPortType === 'special' ? 'selected' : '' ?>>Special</option>
                     </select>
                 </div>
 
