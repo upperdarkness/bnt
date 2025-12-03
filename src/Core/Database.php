@@ -47,7 +47,23 @@ class Database
     public function query(string $sql, array $params = []): \PDOStatement
     {
         $stmt = $this->getConnection()->prepare($sql);
-        $stmt->execute($params);
+        
+        // Convert boolean values to proper PostgreSQL boolean format
+        $processedParams = [];
+        foreach ($params as $key => $value) {
+            if (is_bool($value)) {
+                // PostgreSQL boolean: use actual boolean, not string
+                $processedParams[$key] = $value;
+            } elseif ($value === 'true' || $value === '1') {
+                $processedParams[$key] = true;
+            } elseif ($value === 'false' || $value === '0' || $value === '') {
+                $processedParams[$key] = false;
+            } else {
+                $processedParams[$key] = $value;
+            }
+        }
+        
+        $stmt->execute($processedParams);
         return $stmt;
     }
 

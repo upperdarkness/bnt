@@ -385,11 +385,17 @@ class AdminController
             $portType = 'none';
         }
 
+        // Handle boolean properly for PostgreSQL
+        $isStarbase = false;
+        if (isset($_POST['is_starbase'])) {
+            $isStarbase = ($_POST['is_starbase'] === '1' || $_POST['is_starbase'] === true || $_POST['is_starbase'] === 'true');
+        }
+
         $updates = [
             'sector_name' => trim($_POST['sector_name'] ?? ''),
             'port_type' => $portType,
             'beacon' => trim($_POST['beacon'] ?? ''),
-            'is_starbase' => isset($_POST['is_starbase']) && $_POST['is_starbase'] === '1',
+            'is_starbase' => $isStarbase,
             'zone_id' => max(1, (int)($_POST['zone_id'] ?? 1)),
         ];
 
