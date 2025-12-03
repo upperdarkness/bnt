@@ -125,12 +125,82 @@ ob_start();
         </div>
 
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(52, 152, 219, 0.2);">
+            <h3>Planets in This Sector</h3>
+            
+            <?php if (!empty($planets)): ?>
+            <div style="margin-bottom: 20px;">
+                <table style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Planet Name</th>
+                            <th>Owner</th>
+                            <th>Base</th>
+                            <th>Colonists</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($planets as $planet): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($planet['planet_name']) ?></td>
+                            <td>
+                                <?php if ($planet['owner'] && $planet['owner'] != 0): ?>
+                                    <span style="color: #e74c3c;"><?= htmlspecialchars($planet['owner_name'] ?? 'Unknown') ?></span>
+                                <?php else: ?>
+                                    <span style="color: #7f8c8d;">Unowned</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($planet['base'] ?? false): ?>
+                                    <span style="color: #2ecc71;">Yes</span>
+                                <?php else: ?>
+                                    <span style="color: #7f8c8d;">No</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?= number_format($planet['colonists'] ?? 0) ?></td>
+                            <td>
+                                <?php if (!$planet['owner'] || $planet['owner'] == 0): ?>
+                                <form action="/admin/universe/sector/<?= (int)$sector['sector_id'] ?>/planet/<?= (int)$planet['planet_id'] ?>/delete" method="post" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                                    <button type="submit" class="btn" style="padding: 5px 10px; font-size: 12px; background: rgba(231, 76, 60, 0.3); border-color: #e74c3c;"
+                                            onclick="return confirm('Are you sure you want to delete planet <?= htmlspecialchars($planet['planet_name']) ?>?');">
+                                        Delete
+                                    </button>
+                                </form>
+                                <?php else: ?>
+                                <span style="color: #7f8c8d; font-size: 12px;">Cannot delete owned planet</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php else: ?>
+            <p style="color: #7f8c8d;">No planets currently exist in this sector.</p>
+            <?php endif; ?>
+
+            <div style="background: rgba(15, 76, 117, 0.3); padding: 20px; border-radius: 8px; margin-top: 20px;">
+                <h4>Create New Planet</h4>
+                <form action="/admin/universe/sector/<?= (int)$sector['sector_id'] ?>/planet/create" method="post">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <label style="white-space: nowrap;">Planet Name:</label>
+                        <input type="text" name="planet_name" required style="width: 300px;" placeholder="Enter planet name">
+                        <button type="submit" class="btn" style="background: rgba(46, 204, 113, 0.3); border-color: #2ecc71;">
+                            Create Planet
+                        </button>
+                    </div>
+                    <small style="color: #7f8c8d; display: block; margin-top: 5px;">
+                        New planets will be unowned and have random initial resources.
+                    </small>
+                </form>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(52, 152, 219, 0.2);">
             <h3>Sector Statistics</h3>
             <table style="width: 100%;">
-                <tr>
-                    <td><strong>Planets:</strong></td>
-                    <td><?= number_format($planetCount) ?></td>
-                </tr>
                 <tr>
                     <td><strong>Linked Sectors:</strong></td>
                     <td><?= count($linkedSectors) ?></td>

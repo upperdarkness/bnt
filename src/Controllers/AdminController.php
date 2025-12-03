@@ -340,11 +340,9 @@ class AdminController
             exit;
         }
 
-        // Get planet count
-        $planetCount = $this->planetModel->getDb()->fetchOne(
-            'SELECT COUNT(*) as count FROM planets WHERE sector_id = :id',
-            ['id' => $sectorId]
-        )['count'] ?? 0;
+        // Get planets in this sector
+        $planets = $this->planetModel->getPlanetsInSector($sectorId);
+        $planetCount = count($planets);
 
         // Get linked sectors
         $linkedSectors = $this->universeModel->getLinkedSectors($sectorId);
