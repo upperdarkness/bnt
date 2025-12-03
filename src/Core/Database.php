@@ -53,12 +53,15 @@ class Database
             // Parameter name should include colon for named parameters
             $paramName = (strpos($key, ':') === 0) ? $key : ':' . $key;
             
-            if (is_bool($value)) {
+            if ($value === null) {
+                // Handle NULL values explicitly
+                $stmt->bindValue($paramName, null, PDO::PARAM_NULL);
+            } elseif (is_bool($value)) {
                 // Explicitly bind boolean values
                 $stmt->bindValue($paramName, $value, PDO::PARAM_BOOL);
             } elseif ($value === 'true' || $value === '1') {
                 $stmt->bindValue($paramName, true, PDO::PARAM_BOOL);
-            } elseif ($value === 'false' || $value === '0' || $value === '' || $value === null) {
+            } elseif ($value === 'false' || $value === '0') {
                 $stmt->bindValue($paramName, false, PDO::PARAM_BOOL);
             } elseif (is_int($value)) {
                 $stmt->bindValue($paramName, $value, PDO::PARAM_INT);
