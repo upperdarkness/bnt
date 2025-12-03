@@ -56,6 +56,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `scripts/mark_starbases.php` - Randomly mark ports as starbases
   - `scripts/run_migration.php` - Run migrations via PHP
 
+- **Admin Panel Enhancements**
+  - Universe sector management with pagination and search
+  - View and edit individual sectors (name, zone, port type, beacon, starbase status)
+  - Edit port inventory (ore, organics, goods, energy, colonists)
+  - Navigation link management (add/remove links between sectors)
+  - Planet management (view, create, delete unowned planets)
+  - Starbase status toggle for any sector
+  - Protection against deleting player-owned planets
+
 ### Changed
 - Navigation links now display starbase indicators
 - Port view shows starbase services when at a starbase
