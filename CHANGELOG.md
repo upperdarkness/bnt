@@ -76,6 +76,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Undefined config variable in PortController
 - Missing mine display on combat screen
 - Players' own deployed mines now visible on combat screen
+- Port type selector always showing 'none' in admin sector editor
+- Update sector button not working (nested forms issue)
+- Boolean handling for PostgreSQL (is_starbase checkbox updates)
+- Planet owner foreign key constraint violation (made owner nullable)
+- NULL value handling in database queries (proper PDO parameter binding)
+- Missing createPlanet and deletePlanet methods in AdminController
 
 ## [2.0.0] - 2025-11-27
 
