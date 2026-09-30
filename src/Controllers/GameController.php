@@ -169,6 +169,20 @@ class GameController
         exit;
     }
 
+    public function galaxy(): void
+    {
+        $ship = $this->requireAuth();
+        $galaxy = $this->universeModel->getGalaxyMap();
+        $currentSector = (int)$ship['sector'];
+        $selectedId = max(1, (int)($_GET['sector'] ?? $currentSector));
+        $sectorsById = array_column($galaxy['sectors'], null, 'id');
+        $selected = $sectorsById[$selectedId] ?? $sectorsById[$currentSector] ?? null;
+        $links = $this->universeModel->getLinkedSectors($currentSector);
+        $linkedIds = array_map(static fn(array $link): int => (int)$link['sector_id'], $links);
+        $session = $this->session;
+        include __DIR__ . '/../Views/galaxy.php';
+    }
+
     public function scan(): void
     {
         $ship = $this->requireAuth();

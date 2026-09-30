@@ -10,7 +10,7 @@ $shipTypeInfo = \BNT\Models\ShipType::getInfo($ship['ship_type'] ?? 'balanced');
 <h2><?= htmlspecialchars($ship['character_name']) ?> - Ship Status</h2>
 
 <div style="background: rgba(15, 76, 117, 0.3); padding: 15px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.3); margin-bottom: 20px; text-align: center;">
-    <div style="font-size: 36px; margin-bottom: 8px;"><?= $shipTypeInfo['icon'] ?></div>
+    <img class="ship-portrait" src="<?= \BNT\Core\GameArtwork::ship($ship['ship_type'] ?? 'balanced') ?>" alt="<?= htmlspecialchars($shipTypeInfo['name']) ?> spacecraft" width="1280" height="1280">
     <div style="color: <?= $shipTypeInfo['color'] ?>; font-size: 20px; font-weight: bold; margin-bottom: 5px;"><?= htmlspecialchars($shipTypeInfo['name']) ?></div>
     <div style="color: #bbb; font-size: 14px;"><?= htmlspecialchars($shipTypeInfo['description']) ?></div>
     <div style="margin-top: 10px; font-size: 12px; color: #888;">

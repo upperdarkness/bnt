@@ -389,6 +389,7 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="/assets/css/space.css">
 </head>
 <body>
     <div class="container">
@@ -400,6 +401,7 @@
                 <a href="/main">Main</a>
                 <a href="/status">Status</a>
                 <a href="/scan">Scan</a>
+                <a href="/galaxy">Galaxy</a>
                 <a href="/combat">Combat</a>
                 <a href="/defenses">Defenses</a>
                 <a href="/logs">Logs</a>

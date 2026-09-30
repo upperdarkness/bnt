@@ -123,6 +123,7 @@ $router->get('/news', fn() => $newsController->index());
 
 $router->get('/main', fn() => $gameController->main());
 $router->post('/move/:sector', fn($sector) => $gameController->move((int)$sector));
+$router->get('/galaxy', fn() => $gameController->galaxy());
 $router->get('/scan', fn() => $gameController->scan());
 $router->get('/status', fn() => $gameController->status());
 $router->get('/planet/:id', fn($id) => $gameController->planet((int)$id));

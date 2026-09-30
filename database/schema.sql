@@ -57,6 +57,13 @@ CREATE TABLE IF NOT EXISTS ships (
     team INTEGER DEFAULT 0,
     cleared_defences VARCHAR(200) DEFAULT '',
 
+    -- Character progression (also available through migrations/add_skills.sql)
+    skill_trading INTEGER DEFAULT 0 CHECK (skill_trading >= 0 AND skill_trading <= 100),
+    skill_combat INTEGER DEFAULT 0 CHECK (skill_combat >= 0 AND skill_combat <= 100),
+    skill_engineering INTEGER DEFAULT 0 CHECK (skill_engineering >= 0 AND skill_engineering <= 100),
+    skill_leadership INTEGER DEFAULT 0 CHECK (skill_leadership >= 0 AND skill_leadership <= 100),
+    skill_points INTEGER DEFAULT 0 CHECK (skill_points >= 0),
+
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -4,7 +4,11 @@ $showHeader = true;
 ob_start();
 ?>
 
-<h2>Port - Sector <?= (int)$ship['sector'] ?></h2>
+<section class="world-banner sector-scene sector-amber">
+    <div class="sector-scene-copy"><p class="space-eyebrow"><?= $isStarbase ? 'ORBITAL STARBASE' : 'TRADING STATION' ?></p>
+    <h2>Port · Sector <?= (int)$ship['sector'] ?></h2></div>
+    <img src="/assets/art/station-orbital.webp" alt="Orbital trading station" width="1280" height="1280" class="world-art">
+</section>
 
 <div class="alert alert-info">
     Port Type: <strong><?= htmlspecialchars(ucfirst($portType)) ?></strong>
