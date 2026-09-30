@@ -62,46 +62,4 @@ class Planet extends Model
         return $this->delete($planetId);
     }
 
-    public function updateProduction(int $planetId): bool
-    {
-        $planet = $this->find($planetId);
-        if (!$planet) {
-            return false;
-        }
-
-        // Calculate production based on colonists and percentages
-        $productionRate = 0.005;
-        $totalProduction = $planet['colonists'] * $productionRate;
-
-        $newOre = $planet['ore'] + ($totalProduction * $planet['prod_ore'] / 100);
-        $newOrganics = $planet['organics'] + ($totalProduction * $planet['prod_organics'] / 100);
-        $newGoods = $planet['goods'] + ($totalProduction * $planet['prod_goods'] / 100);
-        $newEnergy = $planet['energy'] + ($totalProduction * $planet['prod_energy'] / 100);
-        $newFighters = $planet['fighters'] + (int)($totalProduction * $planet['prod_fighters'] / 100 / 50);
-        $newTorps = $planet['torps'] + (int)($totalProduction * $planet['prod_torp'] / 100 / 25);
-
-        // Colonist reproduction
-        $reproductionRate = 0.0005;
-        $newColonists = (int)($planet['colonists'] * (1 + $reproductionRate));
-
-        // Organics consumption
-        $consumption = $planet['colonists'] * 0.05;
-        $newOrganics -= $consumption;
-
-        // Starvation if no organics
-        if ($newOrganics < 0) {
-            $newColonists = (int)($newColonists * 0.99);
-            $newOrganics = 0;
-        }
-
-        return $this->update($planetId, [
-            'ore' => (int)$newOre,
-            'organics' => (int)max(0, $newOrganics),
-            'goods' => (int)$newGoods,
-            'energy' => (int)$newEnergy,
-            'fighters' => $newFighters,
-            'torps' => $newTorps,
-            'colonists' => $newColonists,
-        ]);
-    }
 }

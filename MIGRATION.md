@@ -247,8 +247,7 @@ Most core features from the original game have been successfully migrated and mo
 1. **Trade Routes** - Automated trading routes
 2. **Genesis Torpedoes** - Planet creation and terraforming
 3. **Special Devices** - Beacons, warp editors, emergency warp devices
-4. **News System** - Automated news generation from game events
-5. **Scheduler** - Automated maintenance tasks (turn generation, production cycles, etc.)
+News and the scheduler are implemented. Planetary economy includes food, population growth/starvation, tax income, and capped interest. See [SCHEDULER.md](SCHEDULER.md) for configuration and the upgrade migration.
 
 All other major features including combat, planets, teams, banking, messaging, and rankings have been fully implemented with modern security and architecture.
 
