@@ -21,6 +21,14 @@ class Database
     {
         if (self::$connection === null) {
             $cfg = $this->config['database'];
+            if (!in_array($cfg['driver'], PDO::getAvailableDrivers(), true)) {
+                throw new \RuntimeException(sprintf(
+                    'PDO driver "%s" is unavailable. Install and enable the PHP pdo_%s extension for this PHP runtime (CLI scripts use the CLI configuration).',
+                    $cfg['driver'],
+                    $cfg['driver']
+                ));
+            }
+
             $dsn = sprintf(
                 '%s:host=%s;port=%d;dbname=%s',
                 $cfg['driver'],
