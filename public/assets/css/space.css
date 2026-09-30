@@ -1,0 +1,95 @@
+/* Local artwork, no external fonts or graphics services. */
+body {
+    background-color: #050b17;
+    background-image:
+        radial-gradient(1px 1px at 32px 54px, #cbdff2 98%, transparent),
+        radial-gradient(1px 1px at 113px 92px, #7a9cbf 98%, transparent),
+        radial-gradient(1.5px 1.5px at 71px 151px, #a3b7d0 98%, transparent),
+        radial-gradient(ellipse at top right, #173047 0, #081222 45%, #050b17 80%);
+    background-size: 193px 211px, 283px 307px, 421px 389px, 100% 100%;
+}
+.content { background: rgba(7, 17, 32, .94); }
+.space-eyebrow { color: #95bdcd; letter-spacing: .17em; font-size: 11px; font-weight: 700; margin: 0 0 12px; }
+.sector-scene {
+    isolation: isolate; position: relative; overflow: hidden; min-height: 300px;
+    border: 1px solid #2d485d; border-radius: 12px; margin-bottom: 24px;
+    background: #071323;
+}
+.sector-scene::before {
+    content: ''; position: absolute; inset: 0; z-index: -2;
+    background: url('/assets/art/sector-nebula.webp') center/cover;
+    opacity: .85;
+}
+.sector-scene::after {
+    content: ''; position: absolute; inset: 0; z-index: -1;
+    background: linear-gradient(90deg, rgba(3, 10, 22, .98), rgba(3, 10, 22, .65) 42%, rgba(3, 10, 22, .05));
+}
+.sector-violet::before { filter: hue-rotate(35deg); background-position: 70% 30%; }
+.sector-amber::before { filter: hue-rotate(160deg) saturate(.7); background-position: 15% 65%; }
+.sector-scene-copy { position: relative; z-index: 3; padding: 44px 30px; width: 52%; }
+.sector-scene-copy h2 { color: #f1f7ff; font-size: clamp(24px, 3vw, 38px); line-height: 1.15; margin-bottom: 14px; overflow-wrap: anywhere; }
+.sector-scene-copy p:not(.space-eyebrow) { color: #c5d9e7; line-height: 1.7; }
+.sector-scene-copy .btn { margin-top: 20px; background: #163f56; border-color: #68c6d9; color: #e9fcff; }
+.scene-ship { position: absolute; width: 41%; height: 95%; object-fit: contain; right: 9%; bottom: -10%; z-index: 2; filter: drop-shadow(0 16px 24px #020610); }
+.scene-station, .scene-planet { position: absolute; object-fit: contain; width: 26%; height: 76%; top: -10%; right: -2%; opacity: .8; }
+.world-banner { min-height: 210px; }
+.world-banner .sector-scene-copy { padding-block: 45px; width: 64%; }
+.world-art { position: absolute; width: 34%; height: 125%; object-fit: contain; right: 2%; top: -10%; }
+.ship-portrait { width: min(100%, 400px); height: 240px; object-fit: contain; display: block; margin: auto; }
+.galaxy-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
+.galaxy-heading h2 { font-size: 32px; color: #f3f8ff; }
+.map-position { padding: 8px 12px; background: #113b36; color: #a5f3cc; border: 1px solid #2d7264; border-radius: 30px; font-size: 13px; }
+.map-intro { margin: 12px 0 24px; color: #a9bdcf; line-height: 1.6; }
+.galaxy-layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 18px; }
+.galaxy-chart { min-width: 0; position: relative; border-radius: 12px; border: 1px solid #27475d; overflow: hidden; background: linear-gradient(#06111fd9,#06111fc9), url('/assets/art/sector-nebula.webp') center/cover; }
+#galaxy-canvas { display: block; width: 100%; height: 530px; touch-action: none; cursor: grab; }
+#galaxy-canvas:active { cursor: grabbing; }
+#galaxy-canvas:focus-visible { outline: 2px solid #94e2ef; outline-offset: -3px; }
+.map-controls { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px; border-bottom: 1px solid #23394c; background: #071322e6; align-items: center; }
+.map-controls[hidden], [hidden] { display: none !important; }
+.map-controls button { background: #122c40; color: #def3ff; border: 1px solid #3b5b72; border-radius: 5px; padding: 9px 12px; cursor: pointer; }
+.map-controls label { font-size: 12px; margin-left: auto; color: #bbd2df; }
+.map-controls input { width: auto; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 14px; color: #9daabf; font-size: 11px; background: #071322; }
+.legend-current { color: #a5f3cc; }.legend-base { color: #ffd28a; }.legend-port { color: #7fdef4; }
+.map-panel { min-width: 0; padding: 20px; border: 1px solid #27475d; border-radius: 12px; background: #0a1929; }
+.map-panel label { font-size: 13px; color: #afc5d6; }
+.map-search-row { display: flex; gap: 8px; margin-top: 8px; }
+.map-search-row input { min-width: 0; }
+.map-search-row .btn { margin: 0; padding: 10px 14px; }
+#map-feedback { min-height: 20px; color: #ffd28a; font-size: 12px; margin-top: 6px; }
+#map-details { border-top: 1px solid #294052; margin-top: 12px; padding-top: 24px; }
+#map-sector-name { color: #f4f8ff; font-size: 23px; margin-bottom: 12px; overflow-wrap: anywhere; }
+#map-sector-kind, #map-route-note { color: #b0c4d4; font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+#map-move .btn { width: 100%; background: #153d3b; color: #b6f5df; border-color: #407969; padding: 12px 6px; }
+.map-panel h4 { font-size: 13px; margin: 28px 0 10px; color: #dee9f4; }
+.map-neighbors { display: flex; flex-wrap: wrap; gap: 8px; max-height: 180px; overflow-y: auto; }
+.map-neighbors a { text-decoration: none; background: #122c40; color: #bde9f6; padding: 8px; border-radius: 4px; font-size: 12px; }
+.map-help, .map-noscript { font-size: 12px; color: #9db0c2; line-height: 1.7; margin-top: 22px; }
+.map-noscript { padding: 20px; }
+@media(max-width: 850px) {
+    .galaxy-layout { grid-template-columns: 1fr; }
+    #galaxy-canvas { height: 400px; }
+    .map-panel { padding: 20px; }
+    .sector-scene { min-height: 280px; }
+    .sector-scene-copy { width: 64%; padding: 32px 20px; }
+    .scene-ship { right: -4%; width: 48%; bottom: -14%; }
+    .scene-station, .scene-planet { width: 30%; }
+}
+@media(max-width: 480px) {
+    .content { padding: 16px; }
+    .sector-scene-copy { width: 80%; padding: 25px 18px; }
+    .sector-scene-copy h2 { font-size: 26px; }
+    .scene-ship { opacity: .6; width: 58%; right: -12%; bottom: -24%; }
+    .scene-station, .scene-planet { opacity: .45; width: 40%; top: -20%; }
+    .world-banner { min-height: 190px; }
+    .world-banner .sector-scene-copy { width: 78%; padding: 32px 18px; }
+    .world-art { opacity: .6; right: -12%; width: 55%; }
+    #galaxy-canvas { height: 330px; }
+    .map-controls label { margin-left: 0; }
+}
+@media(max-width: 768px) {
+    header { padding: 16px; }
+    .nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+    .nav a { width: auto; margin: 0; padding: 9px 3px; font-size: 11px; text-align: center; }
+}

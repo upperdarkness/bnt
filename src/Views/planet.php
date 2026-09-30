@@ -4,7 +4,10 @@ $showHeader = true;
 ob_start();
 ?>
 
-<h2><?= htmlspecialchars($planet['planet_name']) ?></h2>
+<section class="world-banner sector-scene sector-teal">
+    <div class="sector-scene-copy"><p class="space-eyebrow">PLANETARY OPERATIONS</p><h2><?= htmlspecialchars($planet['planet_name']) ?></h2></div>
+    <img src="/assets/art/planet-terran.webp" alt="Planet seen from orbit" width="1280" height="1280" class="world-art">
+</section>
 
 <div class="alert alert-info">
     Sector <?= (int)$planet['sector_id'] ?> |

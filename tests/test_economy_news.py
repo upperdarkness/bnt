@@ -201,7 +201,7 @@ class EconomyNewsTest(unittest.TestCase):
                 self.assertEqual(response.status, 302)
                 cookie = response.getheader('Set-Cookie').split(';')[0]
                 response.read()
-                for path, expected in [('/news', 'Planet captured'), ('/planet/manage/1', 'Economy forecast')]:
+                for path, expected in [('/news', 'Planet captured'), ('/galaxy', 'Galaxy map'), ('/skills', 'Character Skills'), ('/planet/manage/1', 'Economy forecast')]:
                     connection.request('GET', path, headers={'Cookie': cookie})
                     response = connection.getresponse()
                     html = response.read().decode()
@@ -221,3 +221,28 @@ class EconomyNewsTest(unittest.TestCase):
             finally:
                 server.terminate()
                 server.wait(timeout=10)
+
+    def test_galaxy_contains_public_topology_and_safe_json(self):
+        self.sql("""INSERT INTO universe (sector_id, sector_name, port_type, is_starbase)
+                    VALUES (9, '</script><script>bad()</script>', 'ore', TRUE);
+                    INSERT INTO links (link_start, link_dest) VALUES (1, 9);""")
+        data = json.loads(self.php(r"echo json_encode((new BNT\Models\Universe($db))->getGalaxyMap());"))
+        self.assertEqual(data['links'], [[1, 9]])
+        self.assertEqual(set(data['sectors'][0]), {'id', 'name', 'port', 'starbase'})
+        html = self.php(r"""$session = new BNT\Core\Session(); $session->setUserId(1);
+            $controller = new BNT\Controllers\GameController(new BNT\Models\Ship($db),
+                new BNT\Models\Universe($db), new BNT\Models\Planet($db),
+                new BNT\Models\Combat($db), $session, $config);
+            $_GET['sector'] = '9'; $controller->galaxy();""")
+        self.assertNotIn('</script><script>bad()', html)
+        self.assertIn('action="/move/9"', html)
+        self.assertIn('name="csrf_token"', html)
+        self.assertIn('data-select-sector="9"', html)
+
+    def test_skill_schema_supports_progression_and_repeat_migration(self):
+        self.php(r"$skills = new BNT\Models\Skill($db); $skills->awardSkillPoints(1, 5); $skills->allocateSkillPoints(1, 'trading', 2);")
+        self.assertEqual(self.sql('SELECT skill_trading, skill_points FROM ships'), '2|3')
+        for _ in range(2):
+            self.command(['psql', '-v', 'ON_ERROR_STOP=1', '--single-transaction', '-d', self.name,
+                          '-f', 'database/migrations/add_skills.sql'])
+        self.assertEqual(self.sql('SELECT skill_trading, skill_points FROM ships'), '2|3')

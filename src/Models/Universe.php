@@ -9,6 +9,24 @@ class Universe extends Model
     protected string $table = 'universe';
     protected string $primaryKey = 'sector_id';
 
+    /** Public navigation data only: no ships, defenses, owners, or resource stock. */
+    public function getGalaxyMap(): array
+    {
+        $sectors = $this->db->fetchAll(
+            'SELECT sector_id, sector_name, port_type, is_starbase FROM universe ORDER BY sector_id'
+        );
+        return [
+            'sectors' => array_map(static fn(array $sector): array => [
+                'id' => (int)$sector['sector_id'],
+                'name' => $sector['sector_name'] ?: 'Sector ' . $sector['sector_id'],
+                'port' => $sector['port_type'],
+                'starbase' => (bool)$sector['is_starbase'],
+            ], $sectors),
+            'links' => array_map(static fn(array $link): array => [(int)$link['link_start'], (int)$link['link_dest']],
+                $this->db->fetchAll('SELECT link_start, link_dest FROM links ORDER BY link_start, link_dest')),
+        ];
+    }
+
     public function getSector(int $sectorId): ?array
     {
         return $this->find($sectorId);

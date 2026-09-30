@@ -3,7 +3,20 @@
 ob_start();
 ?>
 
-<h2>Sector <?= (int)$ship['sector'] ?> - <?= htmlspecialchars($sector['sector_name'] ?? 'Unknown') ?></h2>
+<section class="sector-scene <?= \BNT\Core\GameArtwork::sectorTheme((int)$ship['sector']) ?>" aria-label="Sector overview">
+    <div class="sector-scene-copy">
+        <p class="space-eyebrow">NAVIGATION / <?= $isStarbaseSector ? 'PROTECTED SPACE' : 'DEEP SPACE' ?></p>
+        <h2><?= htmlspecialchars($sector['sector_name'] ?? 'Unknown sector') ?></h2>
+        <p>Sector <?= (int)$ship['sector'] ?> · <?= count($links) ?> warp links · <?= count($planets) ?> <?= count($planets) === 1 ? 'planet' : 'planets' ?></p>
+        <a class="btn" href="/galaxy">Open galaxy map &rarr;</a>
+    </div>
+    <img class="scene-ship" src="<?= \BNT\Core\GameArtwork::ship($ship['ship_type'] ?? 'balanced') ?>" alt="Your <?= htmlspecialchars($ship['ship_type'] ?? 'balanced') ?> spacecraft" width="1280" height="1280" fetchpriority="high">
+    <?php if ($isStarbaseSector): ?>
+    <img class="scene-station" src="/assets/art/station-orbital.webp" alt="Orbital starbase" width="1280" height="1280">
+    <?php elseif ($planets): ?>
+    <img class="scene-planet" src="/assets/art/planet-terran.webp" alt="A planet in this sector" width="1280" height="1280">
+    <?php endif; ?>
+</section>
 
 <?php if ($isStarbaseSector): ?>
 <div class="alert alert-success" style="background: rgba(46, 204, 113, 0.3); border-color: #2ecc71; margin-bottom: 20px;">
