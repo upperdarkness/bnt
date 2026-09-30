@@ -23,6 +23,9 @@ class Scheduler
      */
     public function registerTask(string $name, callable $handler, int $intervalMinutes): void
     {
+        if ($intervalMinutes < 1) {
+            throw new \InvalidArgumentException('Task interval must be positive');
+        }
         $this->tasks[$name] = [
             'handler' => $handler,
             'interval' => $intervalMinutes * 60, // Convert to seconds
@@ -35,94 +38,75 @@ class Scheduler
     public function run(): array
     {
         $results = [];
-        $currentTime = time();
-
         foreach ($this->tasks as $name => $task) {
-            $lastRunTime = $this->lastRun[$name] ?? 0;
-            $timeSinceLastRun = $currentTime - $lastRunTime;
-
-            if ($timeSinceLastRun >= $task['interval']) {
-                try {
-                    $startTime = microtime(true);
-                    
-                    // Calculate how many cycles have been missed
-                    $missedCycles = (int)floor($timeSinceLastRun / $task['interval']);
-                    // Cap at 720 cycles (24 hours) to prevent excessive processing
-                    // Individual tasks can apply their own limits
-                    $missedCycles = max(1, min($missedCycles, 720));
-                    
-                    // Pass cycle information to handler if it accepts parameters
-                    $handler = $task['handler'];
-                    if (is_array($handler) && method_exists($handler[0], $handler[1])) {
-                        $reflection = new \ReflectionMethod($handler[0], $handler[1]);
-                        if ($reflection->getNumberOfParameters() > 0) {
-                            $result = call_user_func($handler, $missedCycles);
-                        } else {
-                            $result = call_user_func($handler);
-                        }
-                    } else {
-                        $result = call_user_func($handler);
-                    }
-                    
-                    $duration = round((microtime(true) - $startTime) * 1000, 2);
-
-                    $this->updateLastRunTime($name, $currentTime);
-                    $this->lastRun[$name] = $currentTime;
-
-                    $results[$name] = [
-                        'status' => 'success',
-                        'result' => $result,
-                        'duration' => $duration . 'ms'
-                    ];
-
-                    $this->log($name, 'success', $result, $duration);
-                } catch (\Exception $e) {
-                    $results[$name] = [
-                        'status' => 'error',
-                        'error' => $e->getMessage()
-                    ];
-
-                    $this->log($name, 'error', $e->getMessage(), 0);
-                }
-            } else {
-                $nextRun = $task['interval'] - $timeSinceLastRun;
-                $results[$name] = [
-                    'status' => 'skipped',
-                    'next_run_in' => round($nextRun / 60, 1) . ' minutes'
-                ];
-            }
+            $results[$name] = $this->runTask($name, false);
         }
-
         return $results;
     }
 
-    /**
-     * Force run a specific task regardless of schedule
-     */
     public function forceRun(string $taskName): array
     {
         if (!isset($this->tasks[$taskName])) {
             return ['status' => 'error', 'error' => 'Task not found'];
         }
+        return $this->runTask($taskName, true);
+    }
 
+    private function runTask(string $name, bool $force): array
+    {
+        $task = $this->tasks[$name];
+        $pdo = $this->db->getConnection();
         try {
-            $startTime = microtime(true);
-            $result = call_user_func($this->tasks[$taskName]['handler']);
-            $duration = round((microtime(true) - $startTime) * 1000, 2);
-
-            $this->updateLastRunTime($taskName, time());
-            $this->lastRun[$taskName] = time();
-
-            $this->log($taskName, 'success (forced)', $result, $duration);
-
-            return [
-                'status' => 'success',
-                'result' => $result,
-                'duration' => $duration . 'ms'
-            ];
-        } catch (\Exception $e) {
-            $this->log($taskName, 'error (forced)', $e->getMessage(), 0);
-            return ['status' => 'error', 'error' => $e->getMessage()];
+            $pdo->beginTransaction();
+            // New tasks start now, rather than receiving decades of catch-up income.
+            $this->db->execute(
+                'INSERT INTO scheduler_tasks (task_name, last_run, interval_minutes)
+                 VALUES (:name, NOW(), :minutes) ON CONFLICT (task_name) DO NOTHING',
+                ['name' => $name, 'minutes' => (int)($task['interval'] / 60)]
+            );
+            $row = $this->db->fetchOne(
+                "SELECT *, EXTRACT(EPOCH FROM last_run AT TIME ZONE current_setting('TimeZone')) AS last_epoch,
+                 EXTRACT(EPOCH FROM clock_timestamp()) AS now_epoch
+                 FROM scheduler_tasks WHERE task_name = :name FOR UPDATE SKIP LOCKED",
+                ['name' => $name]
+            );
+            if (!$row) {
+                $pdo->rollBack();
+                return ['status' => 'skipped', 'reason' => 'Already running'];
+            }
+            $elapsed = max(0, (int)floor((float)$row['now_epoch'] - (float)$row['last_epoch']));
+            $this->lastRun[$name] = (int)$row['last_epoch'];
+            if (!$force && (!$row['enabled'] || $elapsed < $task['interval'])) {
+                $pdo->commit();
+                return ['status' => 'skipped', 'next_run_in' => round(max(0, $task['interval'] - $elapsed) / 60, 1) . ' minutes'];
+            }
+            $cycles = $force ? 1 : max(1, min((int)floor($elapsed / $task['interval']), 720));
+            $start = microtime(true);
+            $handler = $task['handler'];
+            if (is_array($handler) && (new \ReflectionMethod($handler[0], $handler[1]))->getNumberOfParameters() > 0) {
+                $result = call_user_func($handler, $cycles);
+            } else {
+                $result = call_user_func($handler);
+            }
+            $duration = round((microtime(true) - $start) * 1000, 2);
+            // Keep fractional cycles so frequent visits don't lose elapsed time.
+            $remainder = $force ? 0 : $elapsed % $task['interval'];
+            $this->db->execute(
+                'UPDATE scheduler_tasks SET last_run = to_timestamp(:epoch) - make_interval(secs => :remainder),
+                 interval_minutes = :minutes WHERE task_name = :name',
+                ['epoch' => $row['now_epoch'], 'remainder' => $remainder,
+                 'minutes' => (int)($task['interval'] / 60), 'name' => $name]
+            );
+            $this->log($name, 'success', $result, $duration);
+            $pdo->commit();
+            $this->lastRun[$name] = (int)$row['now_epoch'] - $remainder;
+            return ['status' => 'success', 'result' => $result, 'duration' => $duration . 'ms'];
+        } catch (\Throwable $error) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $this->log($name, 'error', $error->getMessage(), 0);
+            return ['status' => 'error', 'error' => $error->getMessage()];
         }
     }
 
@@ -156,33 +140,12 @@ class Scheduler
      */
     private function loadLastRunTimes(): void
     {
-        $results = $this->db->fetchAll('SELECT task_name, last_run FROM scheduler_tasks');
+        $results = $this->db->fetchAll("SELECT task_name,
+            EXTRACT(EPOCH FROM last_run AT TIME ZONE current_setting('TimeZone')) AS last_epoch
+            FROM scheduler_tasks");
 
         foreach ($results as $row) {
-            $this->lastRun[$row['task_name']] = strtotime($row['last_run']);
-        }
-    }
-
-    /**
-     * Update last run time in database
-     */
-    private function updateLastRunTime(string $taskName, int $timestamp): void
-    {
-        $exists = $this->db->fetchOne(
-            'SELECT task_name FROM scheduler_tasks WHERE task_name = :name',
-            ['name' => $taskName]
-        );
-
-        if ($exists) {
-            $this->db->execute(
-                'UPDATE scheduler_tasks SET last_run = :time WHERE task_name = :name',
-                ['time' => date('Y-m-d H:i:s', $timestamp), 'name' => $taskName]
-            );
-        } else {
-            $this->db->execute(
-                'INSERT INTO scheduler_tasks (task_name, last_run) VALUES (:name, :time)',
-                ['name' => $taskName, 'time' => date('Y-m-d H:i:s', $timestamp)]
-            );
+            $this->lastRun[$row['task_name']] = (int)$row['last_epoch'];
         }
     }
 

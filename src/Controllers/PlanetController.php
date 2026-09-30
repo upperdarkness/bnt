@@ -167,6 +167,11 @@ class PlanetController
         extract(compact('ship', 'planet', 'isOnPlanet', 'maxHolds', 'usedHolds', 'session', 'title', 'showHeader'));
 
         ob_start();
+        $config = $this->config;
+        $onSurface = $isOnPlanet;
+        $economy = new \BNT\Core\PlanetEconomy($this->config['planet_economy'] ?? []);
+        $forecast = $economy->cycle($planet);
+        $economyInterval = $this->config['scheduler']['planets'];
         include __DIR__ . '/../Views/planet_manage.php';
         echo ob_get_clean();
     }

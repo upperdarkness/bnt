@@ -125,6 +125,10 @@ psql -h localhost -U bnt -d blacknova -v ON_ERROR_STOP=1 --single-transaction -f
 Use your configured host, user, and database. Do not rerun the full schema on an
 existing database; it includes index creation intended for a fresh installation.
 
+For existing installations adding planetary economy and Galactic News, apply
+`database/migrations/add_planet_economy_news.sql` with `psql -v ON_ERROR_STOP=1 --single-transaction`.
+See [economy rules and upgrade instructions](SCHEDULER.md#planet-economy-defaults).
+
 ### 6. Create Universe
 
 Generate sectors and planets:

@@ -55,7 +55,8 @@ The scheduler handles the following tasks:
 ### Planet Production
 - **Interval**: Every 2 minutes
 - **Function**: Planets produce resources based on colonist allocation
-- **Details**: Production rates scale with colonist count and production percentages
+- **Details**: Production, food consumption, population growth/starvation, tax income, and capped interest share the same calculation shown in the planet management forecast.
+- **Missed cycles**: Replays up to 720 cycles in order, including compounding and food depletion; at the default two-minute interval this is 24 hours. Older excess cycles are discarded. Unowned and empty planets do not produce.
 - **Method**: `SchedulerTasks::planetProduction()`
 
 ### IGB Interest
@@ -73,7 +74,8 @@ The scheduler handles the following tasks:
 ### News Generation
 - **Interval**: Every 15 minutes
 - **Function**: Creates news from recent combat events
-- **Details**: Generates headlines from ship destructions and major battles
+- **Details**: Publishes ship destructions and planet captures from structured attack logs. Processes up to 500 unpublished events per run, including events older than one interval. Keeps the latest 100 articles. Publication markers prevent replay after retention; event names and outcomes are public, but locations, cargo, and combat details remain private.
+- **Player feed**: `/news`, linked from the game navigation.
 - **Method**: `SchedulerTasks::generateNews()`
 
 ### Fighter Degradation
@@ -335,3 +337,53 @@ UPDATE scheduler_tasks SET last_run = NOW() - INTERVAL '1 hour' WHERE task_name 
 3. **Test changes**: Test new tasks in development before deploying
 4. **Handle errors gracefully**: Tasks should catch exceptions and return error messages
 5. **Log meaningful results**: Return descriptive status messages from tasks
+
+## Planet economy defaults
+
+Rates are per `scheduler.planets` interval, configured in `config/config.php` under
+`planet_economy`. These are modern balance defaults, not an exact reproduction
+of every historical BNT server's settings.
+
+1. Produce resources using existing allocations and unit costs (0.01 production
+   units per starting colonist, rounded down before allocation).
+2. Feed the starting population from stored organics plus this cycle's harvest:
+   0.001 organics per colonist, rounded up.
+3. If food is sufficient, population grows by 0.05%, rounded down, up to 100 million.
+   Otherwise, no growth occurs and 1% die, rounded up, with food clamped to zero.
+4. Fed colonies earn 0.001 credits per starting colonist, rounded down. Starving
+   colonies earn no tax. Existing savings earn 0.05% interest, rounded down,
+   calculated before this cycle's tax is added.
+5. Credit growth stops at 10 million without a base or 100 billion with one.
+   Existing balances, populations, and stockpiles above their growth caps are
+   preserved; consumption and starvation can still reduce them.
+
+Credits stay on the planet and can be collected through the existing transfer
+form. Small populations still consume food; integer rounding may prevent growth
+or tax income at very small populations. The management page previews one cycle
+and warns about food shortages.
+
+## Upgrade an existing database
+
+Back up your database, then use your own connection details:
+
+```bash
+psql -h localhost -U bnt -d blacknova -v ON_ERROR_STOP=1 --single-transaction -f database/migrations/add_planet_economy_news.sql
+```
+
+This repeatable migration installs scheduler/attack-log prerequisites if absent,
+adds durable news publication markers, and registers the news task. It preserves
+existing planets, credits, news, and task schedules. Fresh databases include these
+changes in `database/schema.sql`. The first news runs backfill qualifying attack
+history in batches. Existing manually created news is not matched to old events.
+
+## Regression tests
+
+With PHP, Composer autoloading, PostgreSQL client tools, and a disposable server:
+
+```bash
+PGHOST=localhost PGPORT=5432 PGUSER=bnt python3 -m unittest discover -s tests -v
+```
+
+The role must be allowed to create databases. Tests create and remove separate
+databases and test growth, starvation, caps, catch-up, simultaneous requests,
+rollback, news retention, HTML escaping, migration reruns, and authenticated pages.

@@ -30,6 +30,26 @@ ob_start();
     </div>
 </div>
 
+<h3>Economy forecast</h3>
+<p>Expected change next cycle (every <?= (int)$economyInterval ?> minutes), at current population and production settings.</p>
+<div class="stat-grid">
+<?php foreach (['colonists' => 'Population', 'organics' => 'Food reserves', 'credits' => 'Credits'] as $field => $label):
+    $change = $forecast['planet'][$field] - $planet[$field]; ?>
+    <div class="stat-card">
+        <div class="stat-label"><?= $label ?></div>
+        <div class="stat-value"><?= $change > 0 ? '+' : '' ?><?= number_format($change) ?></div>
+    </div>
+<?php endforeach; ?>
+</div>
+<p>Food needed: <?= number_format($forecast['report']['food_required']) ?> organics.
+Tax income: <?= number_format($forecast['report']['tax']) ?> credits.
+Interest: <?= number_format($forecast['report']['interest']) ?> credits.
+Credit growth stops at <?= number_format($forecast['report']['credit_limit']) ?> credits; existing savings are kept.</p>
+<?php if ($forecast['report']['starving']): ?>
+<div class="alert alert-warning">Food shortage: this colony will lose population and earn no tax next cycle.
+Deliver organics or increase organic production.</div>
+<?php endif; ?>
+
 <?php if (!$onSurface): ?>
 <div class="alert alert-warning">
     <strong>Warning:</strong> You must land on the planet to manage resources and production.

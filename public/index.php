@@ -26,6 +26,7 @@ use BNT\Models\PlayerInfo;
 use BNT\Models\IBank;
 use BNT\Models\AttackLog;
 use BNT\Models\Skill;
+use BNT\Models\News;
 use BNT\Controllers\AuthController;
 use BNT\Controllers\GameController;
 use BNT\Controllers\PortController;
@@ -39,6 +40,7 @@ use BNT\Controllers\PlayerInfoController;
 use BNT\Controllers\IBankController;
 use BNT\Controllers\AttackLogController;
 use BNT\Controllers\SkillController;
+use BNT\Controllers\NewsController;
 use BNT\Controllers\AdminController;
 use BNT\Controllers\ApiAuthController;
 use BNT\Controllers\ApiGameController;
@@ -74,10 +76,10 @@ $schedulerTasks = new SchedulerTasks($db, $config);
 // Register scheduled tasks
 $scheduler->registerTask('turn_generation', [$schedulerTasks, 'generateTurns'], 2);
 $scheduler->registerTask('port_production', [$schedulerTasks, 'portProduction'], 2);
-$scheduler->registerTask('planet_production', [$schedulerTasks, 'planetProduction'], 2);
+$scheduler->registerTask('planet_production', [$schedulerTasks, 'planetProduction'], $config['scheduler']['planets']);
 $scheduler->registerTask('igb_interest', [$schedulerTasks, 'igbInterest'], 2);
 $scheduler->registerTask('ranking_update', [$schedulerTasks, 'updateRankings'], 30);
-$scheduler->registerTask('news_generation', [$schedulerTasks, 'generateNews'], 15);
+$scheduler->registerTask('news_generation', [$schedulerTasks, 'generateNews'], $config['scheduler']['news']);
 $scheduler->registerTask('fighter_degradation', [$schedulerTasks, 'degradeFighters'], 6);
 $scheduler->registerTask('tow_large_ships', [$schedulerTasks, 'towLargeShips'], 2);
 $scheduler->registerTask('cleanup', [$schedulerTasks, 'cleanup'], 60);
@@ -99,6 +101,7 @@ $upgradeController = new UpgradeController($shipModel, $upgradeModel, $skillMode
 $playerInfoController = new PlayerInfoController($shipModel, $playerInfoModel, $session, $config);
 $ibankController = new IBankController($shipModel, $ibankModel, $session, $config);
 $attackLogController = new AttackLogController($shipModel, $attackLogModel, $session, $config);
+$newsController = new NewsController(new News($db), $shipModel, $session);
 $skillController = new SkillController($shipModel, $skillModel, $session, $config);
 $adminController = new AdminController($shipModel, $universeModel, $planetModel, $teamModel, $session, $adminAuth, $config);
 
@@ -115,6 +118,8 @@ $router->get('/', fn() => $authController->showLogin());
 $router->post('/login', fn() => $authController->login());
 $router->post('/register', fn() => $authController->register());
 $router->get('/logout', fn() => $authController->logout());
+
+$router->get('/news', fn() => $newsController->index());
 
 $router->get('/main', fn() => $gameController->main());
 $router->post('/move/:sector', fn($sector) => $gameController->move((int)$sector));

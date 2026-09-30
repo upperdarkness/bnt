@@ -69,6 +69,19 @@ return [
         'degrade' => 6, // Fighter degradation
     ],
 
+    // Per planet-production cycle. These are configurable modern defaults.
+    'planet_economy' => [
+        'production_rate' => 0.01,
+        'growth_rate' => 0.0005,
+        'food_per_colonist' => 0.001,
+        'starvation_rate' => 0.01,
+        'tax_per_colonist' => 0.001,
+        'interest_rate' => 0.0005,
+        'population_limit' => 100000000,
+        'unbased_credit_limit' => 10000000,
+        'based_credit_limit' => 100000000000,
+    ],
+
     // Trading Configuration
     'trading' => [
         'ore' => [
