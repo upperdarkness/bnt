@@ -42,7 +42,7 @@ This is a ground-up rewrite of the classic BlackNova Traders game with modern te
 
 ## Requirements
 
-- PHP 8.1 or higher
+- PHP 8.1 or higher with PDO and the `pdo_pgsql` PostgreSQL driver
 - PostgreSQL 12 or higher
 - Apache/Nginx web server
 - Composer (for autoloading)
@@ -61,6 +61,13 @@ cd blacknova
 ```bash
 composer install
 ```
+
+On Debian/Ubuntu, install the PostgreSQL PHP extension with `sudo apt install php-pgsql`
+(use the package matching your PHP version). Verify the CLI runtime with
+`php -r 'var_export(PDO::getAvailableDrivers());'` — it must include `pgsql`.
+Enable the extension for your web PHP runtime as well, and restart PHP-FPM or
+Apache after changing its configuration. The PostgreSQL client alone does not
+provide the PHP driver.
 
 If you don't have composer, download it from https://getcomposer.org/
 
@@ -105,8 +112,18 @@ Run the initialization script:
 Or manually:
 
 ```bash
-psql -h localhost -U bnt -d blacknova -f database/schema.sql
+psql -h localhost -U bnt -d blacknova -v ON_ERROR_STOP=1 --single-transaction -f database/schema.sql
 ```
+
+If an older setup reported `fk_zone_owner` errors but printed “setup complete”,
+repair that database without dropping existing game data:
+
+```bash
+psql -h localhost -U bnt -d blacknova -v ON_ERROR_STOP=1 --single-transaction -f database/migrations/fix_database_setup.sql
+```
+
+Use your configured host, user, and database. Do not rerun the full schema on an
+existing database; it includes index creation intended for a fresh installation.
 
 ### 6. Create Universe
 

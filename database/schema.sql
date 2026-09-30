@@ -75,6 +75,8 @@ CREATE TABLE IF NOT EXISTS universe (
     sector_name VARCHAR(100),
     zone_id INTEGER DEFAULT 1,
     port_type VARCHAR(20) DEFAULT 'none',
+    port_colonists BIGINT DEFAULT 0,
+    is_starbase BOOLEAN DEFAULT FALSE,
     port_organics BIGINT DEFAULT 0,
     port_ore BIGINT DEFAULT 0,
     port_goods BIGINT DEFAULT 0,
@@ -107,7 +109,7 @@ CREATE TABLE IF NOT EXISTS planets (
     planet_id SERIAL PRIMARY KEY,
     planet_name VARCHAR(100) NOT NULL,
     sector_id INTEGER NOT NULL,
-    owner INTEGER DEFAULT 0,
+    owner INTEGER DEFAULT NULL,
     corp INTEGER DEFAULT 0,
 
     -- Resources
@@ -136,7 +138,7 @@ CREATE TABLE IF NOT EXISTS planets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_planet_sector FOREIGN KEY (sector_id) REFERENCES universe(sector_id) ON DELETE CASCADE,
-    CONSTRAINT fk_planet_owner FOREIGN KEY (owner) REFERENCES ships(ship_id) ON DELETE SET DEFAULT,
+    CONSTRAINT fk_planet_owner FOREIGN KEY (owner) REFERENCES ships(ship_id) ON DELETE SET NULL,
     CONSTRAINT chk_prod_total CHECK (prod_ore + prod_organics + prod_goods + prod_energy + prod_fighters + prod_torp = 100)
 );
 
@@ -175,19 +177,24 @@ CREATE TABLE IF NOT EXISTS teams (
 CREATE TABLE IF NOT EXISTS zones (
     zone_id SERIAL PRIMARY KEY,
     zone_name VARCHAR(50) NOT NULL,
-    owner INTEGER DEFAULT 0,
+    owner INTEGER DEFAULT NULL,
     corp_zone BOOLEAN DEFAULT FALSE,
 
-    CONSTRAINT fk_zone_owner FOREIGN KEY (owner) REFERENCES ships(ship_id) ON DELETE SET DEFAULT
+    CONSTRAINT fk_zone_owner FOREIGN KEY (owner) REFERENCES ships(ship_id) ON DELETE SET NULL
 );
 
 -- Insert default zones
 INSERT INTO zones (zone_id, zone_name, owner, corp_zone) VALUES
-(1, 'Neutral Zone', 0, FALSE),
-(2, 'Federation Space', 0, TRUE),
-(3, 'Free Trade Zone', 0, FALSE),
-(4, 'War Zone', 0, FALSE)
+(1, 'Neutral Zone', NULL, FALSE),
+(2, 'Federation Space', NULL, TRUE),
+(3, 'Free Trade Zone', NULL, FALSE),
+(4, 'War Zone', NULL, FALSE)
 ON CONFLICT (zone_id) DO NOTHING;
+
+-- Explicit seed IDs must not collide with the next player-created zone.
+SELECT setval(pg_get_serial_sequence('zones', 'zone_id'),
+    GREATEST((SELECT MAX(zone_id) FROM zones),
+             (SELECT last_value FROM zones_zone_id_seq)), true);
 
 -- Messages/Mail
 CREATE TABLE IF NOT EXISTS messages (
