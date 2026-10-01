@@ -149,6 +149,7 @@ class Ship extends Model
         $score += $ship['ship_goods'] * 15;
         $score += $ship['ship_energy'] * 3;
         $score += $ship['ship_colonists'] * 5;
+        $score += ($ship['ship_contraband'] ?? 0) * 1000; // contraband at its base market price
         $score += $ship['ship_fighters'] * 50;
         $score += $ship['torps'] * 25;
         $score += $ship['armor_pts'] * 5;

@@ -118,7 +118,7 @@ $scheduler->run();
 // Initialize controllers
 $authController = new AuthController($shipModel, $session, $config);
 $gameController = new GameController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config, $movementService, $alignmentService, $tradeService);
-$portController = new PortController($shipModel, $universeModel, $skillModel, $session, $config, $tradeService, $alignmentService);
+$portController = new PortController($shipModel, $universeModel, $skillModel, $session, $config, $tradeService, $alignmentService, $contrabandService);
 $combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $attackLogModel, $skillModel, $session, $config, $combatService, $alignmentService);
 $planetController = new PlanetController($shipModel, $universeModel, $planetModel, $session, $config);
 $teamController = new TeamController($shipModel, $teamModel, $session, $config);

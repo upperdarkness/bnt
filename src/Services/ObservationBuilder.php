@@ -23,7 +23,8 @@ class ObservationBuilder
         private CombatRating $rating,
         private NpcEvents $events,
         private TextFilter $filter,
-        private array $config
+        private array $config,
+        private ?ContrabandService $contraband = null
     ) {}
 
     /** @return array{text: string, events: array, last_event_id: int} */
@@ -66,6 +67,11 @@ class ObservationBuilder
         $flags = [];
         if ($sector && $sector['is_starbase']) {
             $flags[] = 'NO COMBAT';
+        }
+        $cbService = $this->contraband;
+        if ($cbService && $cbService->enabled() && $sector && $sector['is_blackmarket']) {
+            $cp = $cbService->prices($sector);
+            $port .= sprintf(' | BLACK MARKET (illegal, costs alignment): %s buy %d, sell %d, stock %d', $cbService->name(), $cp['buy'], $cp['sell'], $cp['stock']);
         }
         $lines[] = sprintf('LOCATION: Sector %d (zone: %s)%s | Port: %s', $sectorId, UntrustedText::sanitize((string)$zone, 40),
             $flags ? ' [' . implode(', ', $flags) . ']' : '', $port);
@@ -119,8 +125,9 @@ class ObservationBuilder
         $lines[] = 'DEFENCES HERE: ' . ($defLines ? implode(' ; ', $defLines) : 'none');
 
         $holds = TradeService::holds((int)$ship['hull'], (string)$ship['ship_type']);
-        $lines[] = sprintf('CARGO: ore %d, organics %d, goods %d, energy %d, colonists %d (holds %d/%d) | FIGHTERS %d | TORPS %d',
+        $lines[] = sprintf('CARGO: ore %d, organics %d, goods %d, energy %d, colonists %d%s (holds %d/%d) | FIGHTERS %d | TORPS %d',
             $ship['ship_ore'], $ship['ship_organics'], $ship['ship_goods'], $ship['ship_energy'], $ship['ship_colonists'],
+            (int)$ship['ship_contraband'] > 0 ? ', CONTRABAND ' . (int)$ship['ship_contraband'] : '',
             TradeService::usedHolds($ship), $holds, $ship['ship_fighters'], $ship['torps']);
 
         $events = $this->events->pending((int)$ship['ship_id'], 10);

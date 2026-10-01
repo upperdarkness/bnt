@@ -22,7 +22,8 @@ class PortController
         private Session $session,
         private array $config,
         private ?TradeService $tradeService = null,
-        private ?AlignmentService $alignment = null
+        private ?AlignmentService $alignment = null,
+        private ?\BNT\Services\ContrabandService $contraband = null
     ) {}
 
     private function requireAuth(): ?array
@@ -107,13 +108,23 @@ class PortController
             $upgradeInfo = $upgradeModel->getUpgradeInfo($ship, $this->config);
         }
 
+        $blackMarket = null;
+        if ($this->contraband && $this->contraband->enabled() && !empty($sector['is_blackmarket'])) {
+            $blackMarket = $this->contraband->prices($sector) + [
+                'name' => $this->contraband->name(),
+                'carried' => (int)$ship['ship_contraband'],
+                'cap' => (int)$this->config['contraband']['carry_cap'],
+                'delta' => $this->alignment ? $this->alignment->rules()->delta('contraband_trade') : 0,
+            ];
+        }
+
         $session = $this->session;
         $config = $this->config;
         $title = 'Port - BlackNova Traders';
         $showHeader = true;
         
         // Extract variables to make them available to the view
-        extract(compact('ship', 'sector', 'portType', 'prices', 'maxHolds', 'usedHolds', 'isStarbase', 'upgradeInfo', 'refusal', 'fineQuote', 'session', 'title', 'showHeader', 'config'));
+        extract(compact('ship', 'sector', 'portType', 'prices', 'maxHolds', 'usedHolds', 'isStarbase', 'upgradeInfo', 'refusal', 'fineQuote', 'blackMarket', 'session', 'title', 'showHeader', 'config'));
 
         ob_start();
         include __DIR__ . '/../Views/port.php';

@@ -39,6 +39,7 @@ srand($seed);
 
 $root = dirname(__DIR__);
 $config = require $root . '/config/config.php';
+$config['contraband']['enabled'] = true;   // exercise the contraband economy in the simulation
 $base = $config['database'];
 
 // ------------------------------------------------------------------ scratch database
@@ -49,7 +50,7 @@ $admin->exec('CREATE DATABASE ' . $dbName);
 $pdo = new PDO($dsn($dbName), $base['username'], $base['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $files = [$root . '/database/schema.sql'];
 foreach (['add_api_tokens', 'add_attack_logs', 'add_planet_economy_news', 'add_port_colonists', 'add_scheduler', 'add_ship_types',
-    'add_skills', 'add_starbases', 'fix_database_setup', 'fix_planet_owner_nullable', 'add_alignment_npcs'] as $m) {
+    'add_skills', 'add_starbases', 'fix_database_setup', 'fix_planet_owner_nullable', 'add_alignment_npcs', 'add_contraband'] as $m) {
     $files[] = $root . "/database/migrations/$m.sql";
 }
 foreach ($files as $f) {
@@ -169,6 +170,11 @@ function checkInvariants(Database $db, int &$sinceLogId, int $sectors): array
     // 4. NPC accounts cannot be logged in to.
     foreach ($db->fetchAll("SELECT ship_id FROM ships WHERE is_npc AND (email NOT LIKE '%@npc.invalid' OR password_hash LIKE '$2y$%') LIMIT 3") as $r) {
         $v[] = "NPC {$r['ship_id']} has a usable login";
+    }
+    // 4b. Contraband stays out of starbases and honest NPC hands; carry cap respected.
+    foreach ($db->fetchAll("SELECT s.ship_id FROM ships s LEFT JOIN npc_profiles p ON p.ship_id = s.ship_id LEFT JOIN universe u ON u.sector_id = s.sector
+                            WHERE s.ship_contraband > 0 AND (u.is_starbase OR p.faction IN ('guild', 'police') OR s.ship_contraband > 50) LIMIT 3") as $r) {
+        $v[] = "ship {$r['ship_id']} holds contraband in a place or hand where it never should";
     }
     // 5. Unclaimed Federation bounties only on Wanted ships.
     foreach ($db->fetchAll('SELECT b.target_id FROM bounties b JOIN ships s ON s.ship_id = b.target_id

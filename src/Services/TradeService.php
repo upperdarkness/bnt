@@ -26,7 +26,8 @@ class TradeService
         private Skill $skills,
         private AlignmentService $alignment,
         private SectorRules $sectors,
-        private array $config
+        private array $config,
+        private ?ContrabandService $contraband = null
     ) {}
 
     // ------------------------------------------------------------ port maths
@@ -58,7 +59,7 @@ class TradeService
     public static function usedHolds(array $ship): int
     {
         return (int)$ship['ship_ore'] + (int)$ship['ship_organics'] + (int)$ship['ship_goods']
-            + (int)$ship['ship_energy'] + (int)$ship['ship_colonists'];
+            + (int)$ship['ship_energy'] + (int)$ship['ship_colonists'] + (int)($ship['ship_contraband'] ?? 0);
     }
 
     /**
@@ -136,6 +137,9 @@ class TradeService
      */
     public function trade(int $shipId, string $commodity, string $action, int $amount): array
     {
+        if ($commodity === 'contraband' && $this->contraband !== null) {
+            return $this->contraband->trade($shipId, $action, $amount);
+        }
         if (!in_array($action, ['buy', 'sell'], true) || !in_array($commodity, self::COMMODITIES, true) || $amount <= 0) {
             return $this->fail('Invalid trade parameters', 'INVALID_TRADE');
         }

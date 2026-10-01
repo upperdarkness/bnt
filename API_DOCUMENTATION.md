@@ -439,6 +439,7 @@ All are authenticated and rate limited. Request bodies are JSON.
 ### POST `/api/v1/game/port/trade`
 Buy or sell at the port in your sector. Body: `{"commodity": "ore|organics|goods|energy", "action": "buy|sell", "amount": 100}`.
 Starbase prices reflect alignment (Paragon -5%, Outlaw +15% on purchases); Pirates are refused (`SERVICE_REFUSED`, 403).
+`commodity` may also be `contraband` (black-market sectors only, when enabled): each deal costs alignment; errors `NOT_BLACKMARKET`, `CONTRABAND_CAP`, `MARKET_FULL`, `CONTRABAND_DISABLED`.
 Errors: `NO_PORT`, `PORT_WONT_SELL`, `PORT_WONT_BUY`, `PORT_STOCK`, `INSUFFICIENT_CREDITS`, `NO_CARGO_SPACE`, `INVALID_TRADE`.
 
 ### POST `/api/v1/game/attack/ship/:id`  ·  POST `/api/v1/game/attack/planet/:id`

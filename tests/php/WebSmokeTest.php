@@ -22,7 +22,7 @@ class WebSmokeTest extends DbTestCase
                 'DB_HOST' => self::$config['database']['host'], 'DB_PORT' => (string)self::$config['database']['port'],
                 'DB_NAME' => self::$dbName, 'DB_USER' => self::$config['database']['username'], 'DB_PASS' => 'x',
                 'NPC_GRAPH_CACHE' => sys_get_temp_dir() . '/bnt_web_graph_' . self::$dbName . '.json',
-                'display_errors' => '1',
+                'display_errors' => '1', 'CONTRABAND_ENABLED' => 'true',
             ], $root);
         } catch (\Throwable $e) {
             self::$skip = $e->getMessage();
@@ -170,6 +170,18 @@ class WebSmokeTest extends DbTestCase
         $this->assertSame(25000, $this->svc('bountyService')->openTotal($target));
         $this->assertContains('Bounty of 25,000', $this->web('GET', '/alignment')['body']);
         $this->assertSame(65000, (int)$this->db()->fetchOne('SELECT balance FROM ibank_accounts WHERE ship_id = :id', ['id' => $me])['balance']);
+    }
+
+    public function testBlackMarketPageAndWebTrade(): void
+    {
+        $this->db()->execute("UPDATE universe SET is_blackmarket = TRUE, port_type = 'special', port_contraband = 100 WHERE sector_id = 9");
+        $me = $this->makePlayer('Dealer', ['sector' => 9, 'hull' => 5, 'credits' => 500000]);
+        $this->login($me);
+        $this->assertPage($this->web('GET', '/port'), 'black market', ['Black Market: Void Relics', 'costs', 'alignment']);
+        $this->web('POST', '/port/trade', ['csrf_token' => $this->csrf('/port'), 'commodity' => 'contraband', 'action' => 'buy', 'amount' => '5']);
+        $this->assertSame(5, (int)$this->ship($me)['ship_contraband']);
+        $this->assertSame(-200, $this->alignmentOf($me));
+        $this->assertPage($this->web('GET', '/port'), 'port after trade', ['you carry 5 / 50']);
     }
 
     public function testAdminNpcAndAlignmentPages(): void

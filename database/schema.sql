@@ -596,3 +596,9 @@ ALTER TABLE ships ADD COLUMN IF NOT EXISTS trade_credit_accum BIGINT NOT NULL DE
 ALTER TABLE attack_logs
   ADD COLUMN IF NOT EXISTS attacker_tier TEXT NULL,
   ADD COLUMN IF NOT EXISTS defender_tier TEXT NULL;
+
+-- Contraband trade good (identical to database/migrations/add_contraband.sql)
+ALTER TABLE ships    ADD COLUMN IF NOT EXISTS ship_contraband BIGINT NOT NULL DEFAULT 0 CHECK (ship_contraband >= 0);
+ALTER TABLE universe ADD COLUMN IF NOT EXISTS is_blackmarket  BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE universe ADD COLUMN IF NOT EXISTS port_contraband BIGINT  NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_universe_blackmarket ON universe (sector_id) WHERE is_blackmarket;

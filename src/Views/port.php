@@ -24,6 +24,24 @@ ob_start();
 </div>
 <?php endif; ?>
 
+<?php if (!empty($blackMarket)): ?>
+<div class="alert alert-error" style="margin-bottom: 20px; background: rgba(155, 89, 182, 0.2); border-color: #9b59b6;">
+    <strong>🕳️ Black Market: <?= htmlspecialchars($blackMarket['name']) ?></strong><br>
+    Illegal cargo. Every purchase or sale costs <strong><?= abs((int)$blackMarket['delta']) ?></strong> alignment and earns no trading bonus.
+    Carrying it into Federation space makes you Wanted; starbase inspectors confiscate it and fine you.
+    If you are destroyed, your killer takes it.<br>
+    Dealer stock: <?= number_format($blackMarket['stock']) ?> &middot; buy at <?= number_format($blackMarket['buy']) ?> &middot;
+    sell at <?= number_format($blackMarket['sell']) ?> &middot; you carry <?= number_format($blackMarket['carried']) ?> / <?= (int)$blackMarket['cap'] ?>
+    <form method="POST" action="/port/trade" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+        <input type="hidden" name="commodity" value="contraband">
+        <input type="number" name="amount" min="1" placeholder="Amount" required>
+        <button class="btn" name="action" value="buy" onclick="return confirm('This will cost alignment. Continue?');">Buy</button>
+        <button class="btn" name="action" value="sell" onclick="return confirm('This will cost alignment. Continue?');">Sell</button>
+    </form>
+</div>
+<?php endif; ?>
+
 <?php if (!empty($refusal)): ?>
 <div class="alert alert-error" style="margin-bottom: 20px;"><strong>Service refused.</strong> <?= htmlspecialchars($refusal) ?></div>
 <?php endif; ?>

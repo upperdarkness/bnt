@@ -166,3 +166,24 @@ Database tests create a throw-away database per class; they are skipped (not fai
 | NPC turn multipliers? | Supported per faction (`turn_multiplier`), default 1.0, shown to admins. |
 | Models / spend? | Not chosen: `npc.default_model` is empty until an admin sets it; budgets default to $1/NPC/day, $10/day global. |
 | Can Raiders capture player planets? | No - scripted Raiders only attack ships and lay mines. |
+
+## Contraband (Void Relics)
+
+A rare, very valuable, illegal trade good. Off by default (`contraband.enabled` / `CONTRABAND_ENABLED`).
+
+* **Where:** only at black-market sectors (`universe.is_blackmarket`, about 7 per 1,000 sectors, never FedSpace or
+  starbases). `create_universe.php` marks them; for an existing universe run `php scripts/mark_blackmarkets.php`.
+  Apply `database/migrations/add_contraband.sql` first. Ordinary ports never deal in it.
+* **Price:** about 1,000 credits a unit (roughly 40x goods), rising up to +50% as a market's stock runs low, with a
+  10% spread. Stock caps at 200 per market and recovers 1% of the gap per port-production cycle, so buying where it
+  is plentiful and selling where it is scarce is the profitable loop. A ship may carry at most 50, and it uses hold space.
+* **Alignment:** every buy or sell action costs 200 (`alignment.deltas.contraband_trade`, logged as
+  `contraband_buy` / `contraband_sell`). It never earns the +1 per 10,000 credits trading bonus.
+* **Risk:** arriving in FedSpace carrying it costs 500 and sets Wanted (once per arrival); arriving at a starbase gets
+  it confiscated plus a fine (`contraband.starbase_fine`, never more than the credits you have). If you are destroyed,
+  the killer salvages what fits in their hold (up to the carry cap) and the rest is lost.
+* **Players and NPCs:** same endpoint as other trade (`commodity: "contraband"`), the web port page shows a black-market
+  panel with a warning. Xenobe Raiders smuggle between markets (never through FedSpace or starbases, one run about every
+  two hours); Guild and Police never touch it. LLM NPCs see the market and their cargo in the observation, and the
+  rules digest tells them it is illegal.
+* **Not included:** no planet storage, and no sale to ordinary ports.
