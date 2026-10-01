@@ -184,6 +184,32 @@ class WebSmokeTest extends DbTestCase
         $this->assertPage($this->web('GET', '/port'), 'port after trade', ['you carry 5 / 50']);
     }
 
+    public function testAdminSectorEditorTogglesBlackMarket(): void
+    {
+        $this->web('POST', '/admin/login', ['csrf_token' => $this->csrf('/admin/login'), 'password' => 'secret']);
+        $page = $this->web('GET', '/admin/universe/sector/9');
+        $this->assertPage($page, 'sector editor', ['Black Market (Void Relics)', 'Contraband stock']);
+        $form = fn(array $extra) => $extra + ['csrf_token' => $this->csrf('/admin/universe/sector/9'), 'sector_name' => 'Nine',
+            'port_type' => 'none', 'beacon' => '', 'zone_id' => '1'];
+        $this->web('POST', '/admin/universe/sector/9/update', $form(['is_blackmarket' => '1', 'port_contraband' => '75']));
+        $row = $this->db()->fetchOne('SELECT is_blackmarket, port_contraband, port_type FROM universe WHERE sector_id = 9');
+        $this->assertTrue((bool)$row['is_blackmarket']);
+        $this->assertSame(75, (int)$row['port_contraband']);
+        $this->assertSame('special', $row['port_type'], 'a port page can open');
+        // Stock is capped; unticking clears the market.
+        $this->web('POST', '/admin/universe/sector/9/update', $form(['is_blackmarket' => '1', 'port_type' => 'special', 'port_contraband' => '9999']));
+        $this->assertSame(200, (int)$this->db()->fetchOne('SELECT port_contraband AS p FROM universe WHERE sector_id = 9')['p']);
+        $this->web('POST', '/admin/universe/sector/9/update', $form(['port_type' => 'special']));
+        $row = $this->db()->fetchOne('SELECT is_blackmarket, port_contraband FROM universe WHERE sector_id = 9');
+        $this->assertFalse((bool)$row['is_blackmarket']);
+        $this->assertSame(0, (int)$row['port_contraband']);
+        // Not allowed on starbases or in Federation zones.
+        $this->web('POST', '/admin/universe/sector/9/update', $form(['is_blackmarket' => '1', 'is_starbase' => '1']));
+        $this->assertFalse((bool)$this->db()->fetchOne('SELECT is_blackmarket AS b FROM universe WHERE sector_id = 9')['b']);
+        $this->web('POST', '/admin/universe/sector/9/update', $form(['is_blackmarket' => '1', 'zone_id' => '2']));
+        $this->assertFalse((bool)$this->db()->fetchOne('SELECT is_blackmarket AS b FROM universe WHERE sector_id = 9')['b']);
+    }
+
     public function testAdminNpcAndAlignmentPages(): void
     {
         $player = $this->makePlayer('Subject', ['sector' => 5]);

@@ -415,6 +415,29 @@ class AdminController
             $updates['port_colonists'] = 0;
         }
 
+        // Contraband black market (only when the contraband migration has been applied)
+        if (array_key_exists('is_blackmarket', $sector)) {
+            $blackMarket = ($_POST['is_blackmarket'] ?? '') === '1';
+            if ($blackMarket) {
+                $zone = $this->universeModel->getDb()->fetchOne(
+                    'SELECT COALESCE(is_federation, FALSE) AS fed FROM zones WHERE zone_id = :z',
+                    ['z' => $updates['zone_id']]
+                );
+                if ($isStarbase || ($zone && $zone['fed'])) {
+                    $this->session->set('error', 'A black market cannot be a starbase or in a Federation zone');
+                    header("Location: /admin/universe/sector/$sectorId");
+                    exit;
+                }
+                if ($portType === 'none') {
+                    $updates['port_type'] = 'special';   // lets the port page open; ordinary trade stays closed
+                }
+            }
+            $updates['is_blackmarket'] = $blackMarket;
+            $updates['port_contraband'] = $blackMarket
+                ? min((int)($this->config['contraband']['stock_limit'] ?? 200), max(0, (int)($_POST['port_contraband'] ?? 0)))
+                : 0;
+        }
+
         try {
             $this->universeModel->update($sectorId, $updates);
             $this->session->set('message', "Sector $sectorId updated successfully");

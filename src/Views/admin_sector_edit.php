@@ -91,6 +91,22 @@ ob_start();
                     </small>
                 </div>
 
+                <?php if (array_key_exists('is_blackmarket', $sector)): ?>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">
+                        <input type="checkbox" name="is_blackmarket" value="1" <?= !empty($sector['is_blackmarket']) ? 'checked' : '' ?>>
+                        Black Market (<?= htmlspecialchars($config['contraband']['name'] ?? 'Void Relics') ?>)
+                    </label>
+                    <label style="display: block; margin: 8px 0 5px;">Contraband stock (max <?= (int)($config['contraband']['stock_limit'] ?? 200) ?>):</label>
+                    <input type="number" name="port_contraband" min="0" max="<?= (int)($config['contraband']['stock_limit'] ?? 200) ?>"
+                           value="<?= (int)($sector['port_contraband'] ?? 0) ?>" style="width: 100%;">
+                    <small style="color: #7f8c8d; display: block; margin-top: 5px;">
+                        Illegal trade good: each deal costs alignment. Not allowed on starbases or in Federation zones.
+                        <?= empty($config['contraband']['enabled']) ? '<strong>Contraband trading is currently disabled in config.</strong>' : '' ?>
+                    </small>
+                </div>
+                <?php endif; ?>
+
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px;">Beacon Message:</label>
                     <textarea name="beacon" rows="3" style="width: 100%;"><?= htmlspecialchars($sector['beacon'] ?? '') ?></textarea>
