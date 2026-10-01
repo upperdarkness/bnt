@@ -12,6 +12,7 @@ use BNT\Models\Combat;
 use BNT\Models\AttackLog;
 use BNT\Models\Skill;
 use BNT\Models\ShipType;
+use BNT\Services\CombatService;
 
 class CombatController
 {
@@ -23,7 +24,9 @@ class CombatController
         private AttackLog $attackLogModel,
         private Skill $skillModel,
         private Session $session,
-        private array $config
+        private array $config,
+        private ?CombatService $combatService = null,
+        private ?\BNT\Services\AlignmentService $alignment = null
     ) {}
 
     private function requireAuth(): ?array
@@ -100,9 +103,10 @@ class CombatController
         
         // Check if in starbase sector (no combat allowed)
         $isStarbaseSector = $this->universeModel->isStarbase((int)$ship['sector']);
+        $alignmentService = $this->alignment;
         
         // Extract variables to make them available to the view
-        extract(compact('ship', 'sector', 'shipsInSector', 'planets', 'defenses', 'myFighters', 'myMines', 'totalMyFighters', 'totalMyMines', 'isStarbaseSector', 'session', 'title', 'showHeader'));
+        extract(compact('ship', 'sector', 'shipsInSector', 'planets', 'defenses', 'myFighters', 'myMines', 'totalMyFighters', 'totalMyMines', 'isStarbaseSector', 'alignmentService', 'session', 'title', 'showHeader'));
 
         ob_start();
         include __DIR__ . '/../Views/combat.php';
@@ -110,20 +114,12 @@ class CombatController
     }
 
     /**
-     * Attack another ship
+     * Attack another ship (rules live in CombatService, shared with the API and NPCs)
      */
     public function attackShip(int $targetId): void
     {
         $ship = $this->requireAuth();
 
-        // Check if in starbase sector (no combat allowed)
-        if ($this->universeModel->isStarbase((int)$ship['sector'])) {
-            $this->session->set('error', 'Combat is not allowed in starbase sectors');
-            header('Location: /combat');
-            exit;
-        }
-
-        // Verify CSRF
         $token = $_POST['csrf_token'] ?? '';
         if (!$this->session->validateCsrfToken($token)) {
             $this->session->set('error', 'Invalid request');
@@ -131,201 +127,8 @@ class CombatController
             exit;
         }
 
-        // Get target
-        $target = $this->shipModel->find($targetId);
-        if (!$target) {
-            $this->session->set('error', 'Target not found');
-            header('Location: /combat');
-            exit;
-        }
-
-        // Validate attack
-        if ($target['sector'] != $ship['sector']) {
-            $this->session->set('error', 'Target is not in your sector');
-            header('Location: /combat');
-            exit;
-        }
-
-        if ($target['ship_id'] == $ship['ship_id']) {
-            $this->session->set('error', 'You cannot attack yourself');
-            header('Location: /combat');
-            exit;
-        }
-
-        if ($ship['team'] != 0 && $target['team'] == $ship['team']) {
-            $this->session->set('error', 'You cannot attack your team members');
-            header('Location: /combat');
-            exit;
-        }
-
-        // Check if attacker has turns
-        if ($ship['turns'] < 1) {
-            $this->session->set('error', 'Not enough turns');
-            header('Location: /combat');
-            exit;
-        }
-
-        // Get combat skill bonus
-        $skills = $this->skillModel->getSkills((int)$ship['ship_id']);
-        $combatSkillMultiplier = $this->skillModel->getCombatMultiplier($skills['combat']);
-
-        // Get ship type combat bonus
-        $shipTypeCombatMultiplier = ShipType::getCombatMultiplier($ship['ship_type']);
-
-        // Execute combat
-        $result = $this->combatModel->shipVsShip($ship, $target);
-
-        // Check if defender has Emergency Warp Drive and activate it if attacked
-        if (!$result['escaped'] && ($target['dev_emerwarp'] ?? 0) > 0) {
-            // Emergency Warp Drive activates!
-            $randomSector = $this->universeModel->getRandomSector((int)$target['sector']);
-            
-            if ($randomSector) {
-                // Move defender to random sector
-                $this->shipModel->update($targetId, [
-                    'sector' => $randomSector,
-                    'dev_emerwarp' => max(0, ($target['dev_emerwarp'] ?? 0) - 1) // Consume device
-                ]);
-                
-                // Create log entry for defender
-                $logData = json_encode([
-                    'action' => 'emergency_warp_activated',
-                    'from_sector' => (int)$target['sector'],
-                    'to_sector' => $randomSector,
-                    'attacker_id' => (int)$ship['ship_id'],
-                    'attacker_name' => $ship['character_name'],
-                    'reason' => 'Attacked by another player'
-                ]);
-                
-                $this->shipModel->getDb()->execute(
-                    "INSERT INTO logs (ship_id, log_type, log_data, logged_at) 
-                     VALUES (:ship_id, 100, :log_data, NOW())",
-                    ['ship_id' => $targetId, 'log_data' => $logData]
-                );
-                
-                // Log attack with special result
-                $this->attackLogModel->logAttack(
-                    (int)$ship['ship_id'],
-                    $ship['character_name'],
-                    $targetId,
-                    $target['character_name'],
-                    'ship',
-                    'emergency_warp',
-                    0,
-                    (int)$ship['sector']
-                );
-                
-                $this->session->set('message', "Target activated Emergency Warp Drive and escaped to Sector $randomSector!");
-                header('Location: /combat');
-                exit;
-            }
-        }
-
-        // Apply combat multipliers (skill + ship type) to damage dealt
-        $totalCombatMultiplier = $combatSkillMultiplier * $shipTypeCombatMultiplier;
-        if ($totalCombatMultiplier != 1.0 && $result['defender_damage'] > 0) {
-            $result['defender_damage'] = (int)($result['defender_damage'] * $totalCombatMultiplier);
-            // Recheck if target is destroyed with bonus damage
-            if ($result['defender_damage'] >= $target['armor']) {
-                $result['defender_destroyed'] = true;
-            }
-        }
-
-        // Apply ship type defense multiplier to reduce damage taken
-        $defenseMultiplier = ShipType::getDefenseMultiplier($ship['ship_type']);
-        if ($defenseMultiplier != 1.0 && $result['attacker_damage'] > 0) {
-            // Lower defense multiplier means more damage taken (inverse relationship for damage reduction)
-            $result['attacker_damage'] = (int)($result['attacker_damage'] / $defenseMultiplier);
-        }
-
-        // Use turn
-        $this->shipModel->useTurns((int)$ship['ship_id'], 1);
-
-        // Apply results
-        if ($result['escaped']) {
-            $this->session->set('error', $result['message']);
-            $this->attackLogModel->logAttack(
-                (int)$ship['ship_id'],
-                $ship['character_name'],
-                $targetId,
-                $target['character_name'],
-                'ship',
-                'escaped',
-                0,
-                (int)$ship['sector']
-            );
-        } else {
-            // Update torpedo count
-            if ($result['torpedos_used'] > 0) {
-                $this->shipModel->update((int)$ship['ship_id'], [
-                    'torps' => $ship['torps'] - $result['torpedos_used']
-                ]);
-            }
-
-            // Update fighters
-            $this->shipModel->update((int)$ship['ship_id'], [
-                'ship_fighters' => $ship['ship_fighters'] - $result['fighters_lost_attacker']
-            ]);
-            $this->shipModel->update($targetId, [
-                'ship_fighters' => max(0, $target['ship_fighters'] - $result['fighters_lost_defender'])
-            ]);
-
-            // Apply damage
-            if ($result['attacker_damage'] > 0) {
-                $this->combatModel->applyDamageToShip((int)$ship['ship_id'], $result['attacker_damage']);
-            }
-
-            if ($result['defender_destroyed']) {
-                $this->combatModel->destroyShip($targetId);
-
-                // Award kill credits
-                $credits = $this->combatModel->awardKillCredits((int)$ship['ship_id'], $target);
-
-                // Collect bounty
-                $bounty = $this->combatModel->collectBounty((int)$ship['ship_id'], $targetId);
-
-                $totalEarnings = $credits + $bounty;
-                $message = "Target destroyed! You earned $credits credits";
-                if ($bounty > 0) {
-                    $message .= " + $bounty bounty";
-                }
-                $message .= " = $totalEarnings total!";
-
-                $this->session->set('message', $message);
-                $this->attackLogModel->logAttack(
-                    (int)$ship['ship_id'],
-                    $ship['character_name'],
-                    $targetId,
-                    $target['character_name'],
-                    'ship',
-                    'destroyed',
-                    $result['defender_damage'],
-                    (int)$ship['sector']
-                );
-
-                // Award skill points for combat victory (3-5 points based on target strength)
-                $skillPointsEarned = min(5, max(3, (int)floor($target['rating'] / 20)));
-                $this->skillModel->awardSkillPoints((int)$ship['ship_id'], $skillPointsEarned);
-            } else {
-                // Apply damage to target
-                if ($result['defender_damage'] > 0) {
-                    $this->combatModel->applyDamageToShip($targetId, $result['defender_damage']);
-                }
-
-                $this->session->set('message', $result['message'] . " Damage dealt: {$result['defender_damage']}");
-                $this->attackLogModel->logAttack(
-                    (int)$ship['ship_id'],
-                    $ship['character_name'],
-                    $targetId,
-                    $target['character_name'],
-                    'ship',
-                    'success',
-                    $result['defender_damage'],
-                    (int)$ship['sector']
-                );
-            }
-        }
-
+        $result = $this->combatService->attackShip($ship, $targetId);
+        $this->session->set($result['flash'], $result['text']);
         header('Location: /combat');
         exit;
     }
@@ -337,14 +140,6 @@ class CombatController
     {
         $ship = $this->requireAuth();
 
-        // Check if in starbase sector (no combat allowed)
-        if ($this->universeModel->isStarbase((int)$ship['sector'])) {
-            $this->session->set('error', 'Combat is not allowed in starbase sectors');
-            header('Location: /combat');
-            exit;
-        }
-
-        // Verify CSRF
         $token = $_POST['csrf_token'] ?? '';
         if (!$this->session->validateCsrfToken($token)) {
             $this->session->set('error', 'Invalid request');
@@ -352,118 +147,8 @@ class CombatController
             exit;
         }
 
-        // Get planet
-        $planet = $this->planetModel->find($planetId);
-        if (!$planet) {
-            $this->session->set('error', 'Planet not found');
-            header('Location: /combat');
-            exit;
-        }
-
-        // Validate attack
-        if ($planet['sector_id'] != $ship['sector']) {
-            $this->session->set('error', 'Planet is not in your sector');
-            header('Location: /combat');
-            exit;
-        }
-
-        if ($planet['owner'] == $ship['ship_id']) {
-            $this->session->set('error', 'You cannot attack your own planet');
-            header('Location: /combat');
-            exit;
-        }
-
-        // Check if attacker has turns
-        if ($ship['turns'] < 5) {
-            $this->session->set('error', 'Need at least 5 turns to attack a planet');
-            header('Location: /combat');
-            exit;
-        }
-
-        // Get combat skill bonus
-        $skills = $this->skillModel->getSkills((int)$ship['ship_id']);
-        $combatSkillMultiplier = $this->skillModel->getCombatMultiplier($skills['combat']);
-
-        // Get ship type combat bonus
-        $shipTypeCombatMultiplier = ShipType::getCombatMultiplier($ship['ship_type']);
-
-        // Execute combat
-        $result = $this->combatModel->shipVsPlanet($ship, $planet);
-
-        // Apply combat multipliers (skill + ship type) to planet damage dealt
-        $totalCombatMultiplier = $combatSkillMultiplier * $shipTypeCombatMultiplier;
-        if ($totalCombatMultiplier != 1.0 && isset($result['planet_damage'])) {
-            $result['planet_damage'] = (int)($result['planet_damage'] * $totalCombatMultiplier);
-        }
-
-        // Apply ship type defense multiplier to reduce damage taken from planet
-        $defenseMultiplier = ShipType::getDefenseMultiplier($ship['ship_type']);
-        if ($defenseMultiplier != 1.0 && $result['ship_damage'] > 0) {
-            $result['ship_damage'] = (int)($result['ship_damage'] / $defenseMultiplier);
-        }
-
-        // Use turns
-        $this->shipModel->useTurns((int)$ship['ship_id'], 5);
-
-        // Update torpedoes
-        if ($result['torpedos_used'] > 0) {
-            $this->shipModel->update((int)$ship['ship_id'], [
-                'torps' => $ship['torps'] - $result['torpedos_used']
-            ]);
-        }
-
-        // Update fighters
-        if ($result['fighters_lost_ship'] > 0) {
-            $this->shipModel->update((int)$ship['ship_id'], [
-                'ship_fighters' => $ship['ship_fighters'] - $result['fighters_lost_ship']
-            ]);
-        }
-
-        if ($result['fighters_lost_planet'] > 0) {
-            $this->planetModel->update($planetId, [
-                'fighters' => max(0, $planet['fighters'] - $result['fighters_lost_planet'])
-            ]);
-        }
-
-        // Apply ship damage
-        if ($result['ship_damage'] > 0) {
-            $this->combatModel->applyDamageToShip((int)$ship['ship_id'], $result['ship_damage']);
-        }
-
-        // Handle results
-        if ($result['planet_captured']) {
-            $this->planetModel->capture($planetId, (int)$ship['ship_id']);
-            $this->session->set('message', 'Planet captured!');
-            $resultType = 'destroyed';
-            $damage = $result['planet_damage'] ?? 0;
-
-            // Award skill points for planet capture
-            $this->skillModel->awardSkillPoints((int)$ship['ship_id'], 3);
-        } elseif ($result['success']) {
-            // Damage planet base or defenses
-            if ($planet['base']) {
-                $this->planetModel->update($planetId, ['base' => false]);
-            }
-            $this->session->set('message', $result['message']);
-            $resultType = 'success';
-            $damage = $result['planet_damage'] ?? 0;
-        } else {
-            $this->session->set('error', $result['message']);
-            $resultType = 'failure';
-            $damage = 0;
-        }
-
-        $this->attackLogModel->logAttack(
-            (int)$ship['ship_id'],
-            $ship['character_name'],
-            null,
-            $planet['name'] ?? "Planet {$planetId}",
-            'planet',
-            $resultType,
-            $damage,
-            (int)$ship['sector']
-        );
-
+        $result = $this->combatService->attackPlanet($ship, $planetId);
+        $this->session->set($result['flash'], $result['text']);
         header('Location: /combat');
         exit;
     }
@@ -475,14 +160,6 @@ class CombatController
     {
         $ship = $this->requireAuth();
 
-        // Check if in starbase sector (no defenses allowed)
-        if ($this->universeModel->isStarbase((int)$ship['sector'])) {
-            $this->session->set('error', 'Defenses cannot be deployed in starbase sectors');
-            header('Location: /combat');
-            exit;
-        }
-
-        // Verify CSRF
         $token = $_POST['csrf_token'] ?? '';
         if (!$this->session->validateCsrfToken($token)) {
             $this->session->set('error', 'Invalid request');
@@ -490,86 +167,15 @@ class CombatController
             exit;
         }
 
-        $defenseType = $_POST['defense_type'] ?? '';
-        $quantity = max(0, (int)($_POST['quantity'] ?? 0));
-
-        if (!in_array($defenseType, ['F', 'M'])) {
-            $this->session->set('error', 'Invalid defense type');
-            header('Location: /combat');
-            exit;
-        }
-
-        $defenseTypeName = $defenseType === 'F' ? 'fighters' : 'mines';
-
-        // Check if player has enough
-        $shipColumn = $defenseType === 'F' ? 'ship_fighters' : 'torps';
-        if ($ship[$shipColumn] < $quantity) {
-            $this->session->set('error', "Not enough $defenseTypeName");
-            header('Location: /combat');
-            exit;
-        }
-
-        // Check if defense already exists
-        $sql = "SELECT * FROM sector_defence
-                WHERE sector_id = :sector
-                AND ship_id = :ship
-                AND defence_type = :type";
-
-        $existing = $this->shipModel->getDb()->fetchOne($sql, [
-            'sector' => $ship['sector'],
-            'ship' => $ship['ship_id'],
-            'type' => $defenseType
-        ]);
-
-        if ($existing) {
-            // Update existing
-            $this->shipModel->getDb()->execute(
-                'UPDATE sector_defence SET quantity = quantity + :qty WHERE defence_id = :id',
-                ['qty' => $quantity, 'id' => $existing['defence_id']]
-            );
-        } else {
-            // Create new
-            $this->shipModel->getDb()->execute(
-                'INSERT INTO sector_defence (ship_id, sector_id, defence_type, quantity) VALUES (:ship, :sector, :type, :qty)',
-                [
-                    'ship' => $ship['ship_id'],
-                    'sector' => $ship['sector'],
-                    'type' => $defenseType,
-                    'qty' => $quantity
-                ]
-            );
-        }
-
-        // Remove from ship
-        $this->shipModel->update((int)$ship['ship_id'], [
-            $shipColumn => $ship[$shipColumn] - $quantity
-        ]);
-
-        // Check for defense vs defense combat
-        $dvdResult = $this->combatModel->defenseVsDefense((int)$ship['sector'], (int)$ship['ship_id']);
-        if ($dvdResult['combat_occurred']) {
-            $message = "Deployed $quantity $defenseTypeName. " . $dvdResult['message'];
-            $this->session->set('message', $message);
-
-            // Log defense vs defense combat
-            $this->attackLogModel->logAttack(
-                (int)$ship['ship_id'],
-                $ship['character_name'],
-                null,
-                null,
-                'defense',
-                $dvdResult['success'] ?? true ? 'success' : 'failure',
-                $dvdResult['damage_dealt'] ?? 0,
-                (int)$ship['sector']
-            );
-        } else {
-            $this->session->set('message', "Deployed $quantity $defenseTypeName in this sector");
-        }
-
+        $result = $this->combatService->deployDefence(
+            $ship,
+            (string)($_POST['defense_type'] ?? ''),
+            max(0, (int)($_POST['quantity'] ?? 0))
+        );
+        $this->session->set($result['flash'], $result['text']);
         header('Location: /combat');
         exit;
     }
-
 
     /**
      * View all player's defenses across sectors

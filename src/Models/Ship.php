@@ -25,7 +25,7 @@ class Ship extends Model
     {
         $ship = $this->findByEmail($email);
 
-        if (!$ship || !password_verify($password, $ship['password_hash'])) {
+        if (!$ship || !empty($ship['is_npc']) || !password_verify($password, $ship['password_hash'])) {
             return null;
         }
 
@@ -80,16 +80,18 @@ class Ship extends Model
 
     public function getShipsInSector(int $sectorId, ?int $excludeShipId = null): array
     {
-        $sql = "SELECT ship_id, character_name, score, team
-                FROM {$this->table}
-                WHERE sector = :sector
-                AND ship_destroyed = FALSE
-                AND on_planet = FALSE";
+        $sql = "SELECT s.ship_id, s.character_name, s.score, s.team, s.alignment, s.wanted_until, s.is_npc,
+                       p.faction
+                FROM {$this->table} s
+                LEFT JOIN npc_profiles p ON p.ship_id = s.ship_id
+                WHERE s.sector = :sector
+                AND s.ship_destroyed = FALSE
+                AND s.on_planet = FALSE";
 
         $params = ['sector' => $sectorId];
 
         if ($excludeShipId !== null) {
-            $sql .= " AND ship_id != :exclude";
+            $sql .= " AND s.ship_id != :exclude";
             $params['exclude'] = $excludeShipId;
         }
 

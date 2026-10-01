@@ -12,6 +12,9 @@ use BNT\Models\Universe;
 use BNT\Models\Planet;
 use BNT\Models\Combat;
 use BNT\Models\ShipType;
+use BNT\Services\AlignmentService;
+use BNT\Services\MovementService;
+use BNT\Services\TradeService;
 
 class ApiGameController
 {
@@ -22,8 +25,23 @@ class ApiGameController
         private Combat $combatModel,
         private ApiAuth $apiAuth,
         private ApiMiddleware $middleware,
-        private array $config
+        private array $config,
+        private ?MovementService $movement = null,
+        private ?AlignmentService $alignment = null,
+        private ?TradeService $trade = null
     ) {}
+
+    /** Other ships as other players may see them: tier not number, Wanted badge, NPC faction. */
+    private function publicShips(array $ships): array
+    {
+        return $this->alignment ? array_map(fn($s) => $this->alignment->publicView($s), $ships) : $ships;
+    }
+
+    private function cleanShip(array $ship): array
+    {
+        unset($ship['password_hash'], $ship['trade_credit_accum']);
+        return $ship;
+    }
     
     private function requireAuth(): array
     {
@@ -55,6 +73,7 @@ class ApiGameController
         $links = $this->universeModel->getLinkedSectors((int)$ship['sector']);
         $planets = $this->planetModel->getPlanetsInSector((int)$ship['sector']);
         $shipsInSector = $this->shipModel->getShipsInSector((int)$ship['sector'], (int)$ship['ship_id']);
+        $this->trade?->recordKnownPort((int)$ship['ship_id'], (int)$ship['sector']);
         
         $maxHolds = $this->calculateHolds($ship['hull'], $ship['ship_type']);
         $usedHolds = $ship['ship_ore'] + $ship['ship_organics'] +
@@ -64,11 +83,11 @@ class ApiGameController
         $isStarbaseSector = $this->universeModel->isStarbase((int)$ship['sector']);
         
         ApiResponse::success([
-            'ship' => $ship,
+            'ship' => $this->cleanShip($ship),
             'sector' => $sector,
             'links' => $links,
             'planets' => $planets,
-            'ships_in_sector' => $shipsInSector,
+            'ships_in_sector' => $this->publicShips($shipsInSector),
             'holds' => [
                 'max' => $maxHolds,
                 'used' => $usedHolds,
@@ -85,93 +104,27 @@ class ApiGameController
     public function move(int $destinationSector): void
     {
         $ship = $this->requireAuth();
-        
-        $turnCost = ShipType::getTurnCost($ship['ship_type']);
-        
-        if ($ship['turns'] < $turnCost) {
-            ApiResponse::error('Not enough turns', 'INSUFFICIENT_TURNS', 400);
+
+        $result = $this->movement->move($ship, $destinationSector);
+        if (!$result['success']) {
+            ApiResponse::error($result['error'], $result['code'], 400);
         }
-        
-        if (!$this->universeModel->isLinked((int)$ship['sector'], $destinationSector)) {
-            ApiResponse::error('Sectors are not linked', 'SECTORS_NOT_LINKED', 400);
+        if ($result['destroyed']) {
+            $msg = $result['destroyed_by'] === 'mines' ? 'Your ship was destroyed by mines!' : 'Your ship was destroyed by sector fighters!';
+            ApiResponse::error($msg, 'SHIP_DESTROYED', 400, ['sector' => $destinationSector]);
         }
-        
-        $this->shipModel->useTurns((int)$ship['ship_id'], $turnCost);
-        $this->shipModel->update((int)$ship['ship_id'], ['sector' => $destinationSector]);
-        
-        // Log movement
-        $this->logMovement((int)$ship['ship_id'], $destinationSector);
-        
-        // Check for mines in destination sector
-        $mineDeflectors = (int)($ship['dev_minedeflector'] ?? 0);
-        $mineResult = $this->combatModel->checkMines(
-            (int)$ship['ship_id'], 
-            $destinationSector, 
-            (int)$ship['hull'], 
-            $mineDeflectors
-        );
-        
-        $response = [
-            'sector' => $destinationSector,
-            'turns_used' => $turnCost,
-            'mine_result' => null,
-            'fighter_result' => null
-        ];
-        
-        if ($mineResult['deflector_used']) {
-            $response['mine_result'] = [
-                'deflector_used' => true,
-                'message' => $mineResult['message']
-            ];
-        } elseif ($mineResult['hit']) {
-            $this->combatModel->applyDamageToShip((int)$ship['ship_id'], $mineResult['damage']);
-            
-            if ($mineResult['mines_destroyed'] > 0) {
-                $this->removeMines($destinationSector, $mineResult['mines_destroyed']);
-            }
-            
-            if ($mineResult['ship_destroyed']) {
-                ApiResponse::error('Your ship was destroyed by mines!', 'SHIP_DESTROYED', 400, [
-                    'sector' => $destinationSector
-                ]);
-            }
-            
-            $response['mine_result'] = [
-                'hit' => true,
-                'damage' => $mineResult['damage'],
-                'message' => $mineResult['message']
-            ];
-        }
-        
-        // Check for sector fighters
-        $ship = $this->shipModel->find((int)$ship['ship_id']);
-        $fighterResult = $this->combatModel->checkSectorFighters($ship, $destinationSector);
-        
-        if ($fighterResult['attacked']) {
-            if ($fighterResult['damage'] > 0) {
-                $this->combatModel->applyDamageToShip((int)$ship['ship_id'], $fighterResult['damage']);
-            }
-            
-            if ($fighterResult['ship_destroyed']) {
-                ApiResponse::error('Your ship was destroyed by sector fighters!', 'SHIP_DESTROYED', 400);
-            }
-            
-            $response['fighter_result'] = [
-                'attacked' => true,
-                'damage' => $fighterResult['damage'],
-                'message' => $fighterResult['message']
-            ];
-        }
-        
-        // Reload ship data
-        $ship = $this->shipModel->find((int)$ship['ship_id']);
-        
+
         ApiResponse::success([
-            'ship' => $ship,
-            'movement' => $response
+            'ship' => $this->cleanShip($result['ship']),
+            'movement' => [
+                'sector' => $destinationSector,
+                'turns_used' => $result['turns_used'],
+                'mine_result' => $result['mine'],
+                'fighter_result' => $result['fighter'],
+            ],
         ]);
     }
-    
+
     /**
      * GET /api/v1/game/scan
      * Get detailed sector scan
@@ -185,6 +138,14 @@ class ApiGameController
         $planets = $this->planetModel->getPlanetsInSector((int)$ship['sector']);
         $shipsInSector = $this->shipModel->getShipsInSector((int)$ship['sector'], (int)$ship['ship_id']);
         
+        $this->trade?->recordKnownPort((int)$ship['ship_id'], (int)$ship['sector']);
+        foreach ($links as $link) {
+            if (($link['port_type'] ?? 'none') !== 'none') {
+                $this->trade?->recordKnownPort((int)$ship['ship_id'], (int)$link['sector_id'], $link['port_type']);
+            }
+        }
+        $this->alignment?->noteSightings($shipsInSector, (int)$ship['sector']);
+
         $sql = "SELECT sd.*, s.character_name
                 FROM sector_defence sd
                 JOIN ships s ON sd.ship_id = s.ship_id
@@ -193,11 +154,11 @@ class ApiGameController
         $defenses = $this->shipModel->getDb()->fetchAll($sql, ['sector_id' => $ship['sector']]);
         
         ApiResponse::success([
-            'ship' => $ship,
+            'ship' => $this->cleanShip($ship),
             'sector' => $sector,
             'links' => $links,
             'planets' => $planets,
-            'ships_in_sector' => $shipsInSector,
+            'ships_in_sector' => $this->publicShips($shipsInSector),
             'defenses' => $defenses
         ]);
     }
@@ -220,7 +181,7 @@ class ApiGameController
         $maxTorps = $this->calculateTorps($ship['torp_launchers']);
         
         ApiResponse::success([
-            'ship' => $ship,
+            'ship' => $this->cleanShip($ship),
             'planets' => $planets,
             'capacities' => [
                 'holds' => $maxHolds,
@@ -293,7 +254,7 @@ class ApiGameController
         $ship = $this->shipModel->find((int)$ship['ship_id']);
         
         ApiResponse::success([
-            'ship' => $ship,
+            'ship' => $this->cleanShip($ship),
             'planet' => $planet
         ], 'Landed on planet successfully');
     }
@@ -318,7 +279,7 @@ class ApiGameController
         $ship = $this->shipModel->find((int)$ship['ship_id']);
         
         ApiResponse::success([
-            'ship' => $ship
+            'ship' => $this->cleanShip($ship)
         ], 'Left planet successfully');
     }
     
@@ -343,38 +304,4 @@ class ApiGameController
     {
         return (int)round(pow(1.5, $level) * 100);
     }
-    
-    private function logMovement(int $shipId, int $sectorId): void
-    {
-        $sql = "INSERT INTO movement_log (ship_id, sector_id, time) VALUES (:ship_id, :sector_id, NOW())";
-        $this->shipModel->getDb()->execute($sql, ['ship_id' => $shipId, 'sector_id' => $sectorId]);
-    }
-    
-    private function removeMines(int $sectorId, int $count): void
-    {
-        $sql = "SELECT * FROM sector_defence
-                WHERE sector_id = :sector AND defence_type = 'M'
-                ORDER BY quantity ASC";
-        $mines = $this->shipModel->getDb()->fetchAll($sql, ['sector' => $sectorId]);
-        
-        $remaining = $count;
-        foreach ($mines as $mine) {
-            if ($remaining <= 0) break;
-            
-            if ($mine['quantity'] <= $remaining) {
-                $this->shipModel->getDb()->execute(
-                    'DELETE FROM sector_defence WHERE defence_id = :id',
-                    ['id' => $mine['defence_id']]
-                );
-                $remaining -= $mine['quantity'];
-            } else {
-                $this->shipModel->getDb()->execute(
-                    'UPDATE sector_defence SET quantity = quantity - :count WHERE defence_id = :id',
-                    ['count' => $remaining, 'id' => $mine['defence_id']]
-                );
-                $remaining = 0;
-            }
-        }
-    }
 }
-

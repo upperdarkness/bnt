@@ -10,6 +10,9 @@ use BNT\Models\Universe;
 use BNT\Models\Planet;
 use BNT\Models\Combat;
 use BNT\Models\ShipType;
+use BNT\Services\AlignmentService;
+use BNT\Services\MovementService;
+use BNT\Services\TradeService;
 
 class GameController
 {
@@ -19,7 +22,10 @@ class GameController
         private Planet $planetModel,
         private Combat $combatModel,
         private Session $session,
-        private array $config
+        private array $config,
+        private ?MovementService $movement = null,
+        private ?AlignmentService $alignment = null,
+        private ?TradeService $trade = null
     ) {}
 
     private function requireAuth(): ?array
@@ -70,13 +76,15 @@ class GameController
 
         // Check if in starbase sector
         $isStarbaseSector = $this->universeModel->isStarbase((int)$ship['sector']);
+        $this->trade?->recordKnownPort((int)$ship['ship_id'], (int)$ship['sector']);
+        $alignmentService = $this->alignment;
         
         $session = $this->session;
         $title = 'Main - BlackNova Traders';
         $showHeader = true;
         
         // Extract variables to make them available to the view
-        extract(compact('ship', 'sector', 'links', 'planets', 'shipsInSector', 'maxHolds', 'usedHolds', 'isStarbaseSector', 'session', 'title', 'showHeader'));
+        extract(compact('ship', 'sector', 'links', 'planets', 'shipsInSector', 'maxHolds', 'usedHolds', 'isStarbaseSector', 'alignmentService', 'session', 'title', 'showHeader'));
         
         ob_start();
         include __DIR__ . '/../Views/main.php';
@@ -95,74 +103,25 @@ class GameController
             exit;
         }
 
-        // Calculate turn cost based on ship type
-        $turnCost = ShipType::getTurnCost($ship['ship_type']);
-
-        // Check if player has turns
-        if ($ship['turns'] < $turnCost) {
-            $this->session->set('error', 'Not enough turns');
+        $result = $this->movement->move($ship, $destinationSector);
+        if (!$result['success']) {
+            $this->session->set('error', $result['error']);
             header('Location: /main');
             exit;
         }
 
-        // Check if sectors are linked
-        if (!$this->universeModel->isLinked((int)$ship['sector'], $destinationSector)) {
-            $this->session->set('error', 'Sectors are not linked');
-            header('Location: /main');
+        if ($result['destroyed']) {
+            $this->session->set('error', $result['destroyed_by'] === 'mines'
+                ? 'Your ship was destroyed by mines!'
+                : 'Your ship was destroyed by sector fighters!');
+            header('Location: /');
             exit;
         }
 
-        // Use turns and move
-        $this->shipModel->useTurns((int)$ship['ship_id'], $turnCost);
-        $this->shipModel->update((int)$ship['ship_id'], ['sector' => $destinationSector]);
-
-        // Log movement
-        $this->logMovement((int)$ship['ship_id'], $destinationSector);
-
-        // Check for mines in destination sector
-        $mineDeflectors = (int)($ship['dev_minedeflector'] ?? 0);
-        $mineResult = $this->combatModel->checkMines((int)$ship['ship_id'], $destinationSector, (int)$ship['hull'], $mineDeflectors);
-        
-        if ($mineResult['deflector_used']) {
-            $this->session->set('message', $mineResult['message']);
-        } elseif ($mineResult['hit']) {
-            $this->session->set('error', $mineResult['message']);
-
-            // Apply mine damage
-            $this->combatModel->applyDamageToShip((int)$ship['ship_id'], $mineResult['damage']);
-
-            // Remove destroyed mines
-            if ($mineResult['mines_destroyed'] > 0) {
-                $this->removeMines($destinationSector, $mineResult['mines_destroyed']);
-            }
-
-            // Check if ship was destroyed
-            if ($mineResult['ship_destroyed']) {
-                $this->session->set('error', 'Your ship was destroyed by mines!');
-                header('Location: /');
-                exit;
-            }
-        }
-
-        // Check for sector fighter attacks
-        $ship = $this->shipModel->find((int)$ship['ship_id']); // Reload ship data
-        $fighterResult = $this->combatModel->checkSectorFighters($ship, $destinationSector);
-        if ($fighterResult['attacked']) {
-            $existingError = $this->session->get('error');
-            $message = $existingError ? $existingError . ' | ' . $fighterResult['message'] : $fighterResult['message'];
-            $this->session->set('error', $message);
-
-            // Apply fighter damage
-            if ($fighterResult['damage'] > 0) {
-                $this->combatModel->applyDamageToShip((int)$ship['ship_id'], $fighterResult['damage']);
-            }
-
-            // Check if ship was destroyed
-            if ($fighterResult['ship_destroyed']) {
-                $this->session->set('error', 'Your ship was destroyed by sector fighters!');
-                header('Location: /');
-                exit;
-            }
+        $messages = array_filter([$result['mine']['message'] ?? null, $result['fighter']['message'] ?? null]);
+        if ($messages) {
+            $hit = !empty($result['mine']['hit']) || !empty($result['fighter']['attacked']);
+            $this->session->set($hit ? 'error' : 'message', implode(' | ', $messages));
         }
 
         header('Location: /main');
@@ -200,12 +159,21 @@ class GameController
 
         $defenses = $this->shipModel->getDb()->fetchAll($sql, ['sector_id' => $ship['sector']]);
 
+        $this->trade?->recordKnownPort((int)$ship['ship_id'], (int)$ship['sector']);
+        foreach ($links as $link) {
+            if (($link['port_type'] ?? 'none') !== 'none') {
+                $this->trade?->recordKnownPort((int)$ship['ship_id'], (int)$link['sector_id'], $link['port_type']);
+            }
+        }
+        $this->alignment?->noteSightings($shipsInSector, (int)$ship['sector']);
+        $alignmentService = $this->alignment;
+
         $session = $this->session;
         $title = 'Scan - BlackNova Traders';
         $showHeader = true;
         
         // Extract variables to make them available to the view
-        extract(compact('ship', 'sector', 'links', 'planets', 'shipsInSector', 'defenses', 'session', 'title', 'showHeader'));
+        extract(compact('ship', 'sector', 'links', 'planets', 'shipsInSector', 'defenses', 'alignmentService', 'session', 'title', 'showHeader'));
 
         ob_start();
         include __DIR__ . '/../Views/scan.php';
@@ -357,38 +325,5 @@ class GameController
     private function calculateTorps(int $level): int
     {
         return (int)round(pow(1.5, $level) * 100);
-    }
-
-    private function logMovement(int $shipId, int $sectorId): void
-    {
-        $sql = "INSERT INTO movement_log (ship_id, sector_id, time) VALUES (:ship_id, :sector_id, NOW())";
-        $this->shipModel->getDb()->execute($sql, ['ship_id' => $shipId, 'sector_id' => $sectorId]);
-    }
-
-    private function removeMines(int $sectorId, int $count): void
-    {
-        $sql = "SELECT * FROM sector_defence
-                WHERE sector_id = :sector AND defence_type = 'M'
-                ORDER BY quantity ASC";
-        $mines = $this->shipModel->getDb()->fetchAll($sql, ['sector' => $sectorId]);
-
-        $remaining = $count;
-        foreach ($mines as $mine) {
-            if ($remaining <= 0) break;
-
-            if ($mine['quantity'] <= $remaining) {
-                $this->shipModel->getDb()->execute(
-                    'DELETE FROM sector_defence WHERE defence_id = :id',
-                    ['id' => $mine['defence_id']]
-                );
-                $remaining -= $mine['quantity'];
-            } else {
-                $this->shipModel->getDb()->execute(
-                    'UPDATE sector_defence SET quantity = quantity - :count WHERE defence_id = :id',
-                    ['count' => $remaining, 'id' => $mine['defence_id']]
-                );
-                $remaining = 0;
-            }
-        }
     }
 }

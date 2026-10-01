@@ -154,6 +154,49 @@ foreach ($sectorIds as $sectorId) {
     }
 }
 
+// Sector 1 and its neighbours are the default Federation zone (zone 2, is_federation = true)
+echo "  Marking Federation space around sector 1...\n";
+$hasFederationFlag = (bool)$db->fetchOne("SELECT 1 AS x FROM information_schema.columns WHERE table_name = 'zones' AND column_name = 'is_federation'");
+if ($hasFederationFlag) {
+    $db->execute('UPDATE zones SET is_federation = TRUE WHERE zone_id = 2');
+} else {
+    echo "  (zones.is_federation is missing: apply database/migrations/add_alignment_npcs.sql to enable FedSpace rules)\n";
+}
+$db->execute('UPDATE universe SET zone_id = 2 WHERE sector_id = 1 OR sector_id IN (SELECT link_dest FROM links WHERE link_start = 1)');
+
+// Home territories for NPC factions: a Free Trade Zone (3) and a War Zone / Xenobe Reach (4),
+// each grown as a connected cluster of roughly 8% of the universe.
+echo "  Carving Free Trade Zone and War Zone clusters...\n";
+$adjacency = [];
+foreach ($db->fetchAll('SELECT link_start, link_dest FROM links') as $row) {
+    $adjacency[(int)$row['link_start']][] = (int)$row['link_dest'];
+}
+$taken = array_flip(array_map('intval', array_column($db->fetchAll('SELECT sector_id FROM universe WHERE zone_id = 2'), 'sector_id')));
+foreach ([3, 4] as $zoneId) {
+    $target = max(3, (int)round(count($sectorIds) * 0.08));
+    $candidates = array_values(array_diff($sectorIds, array_keys($taken)));
+    if (!$candidates) {
+        break;
+    }
+    $queue = [$candidates[array_rand($candidates)]];
+    $members = [];
+    while ($queue && count($members) < $target) {
+        $node = array_shift($queue);
+        if (isset($taken[$node]) || isset($members[$node])) {
+            continue;
+        }
+        $members[$node] = true;
+        foreach ($adjacency[$node] ?? [] as $n) {
+            $queue[] = $n;
+        }
+    }
+    if ($members) {
+        $db->execute('UPDATE universe SET zone_id = ' . (int)$zoneId . ' WHERE is_starbase = FALSE AND sector_id = ANY(CAST(:ids AS INT[]))',
+            ['ids' => '{' . implode(',', array_keys($members)) . '}']);
+        $taken += $members;
+    }
+}
+
 echo "Creating $numPlanets planets...\n";
 
 // Create planets

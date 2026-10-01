@@ -19,14 +19,14 @@ class ApiAuth
     /**
      * Generate a new API token for a user
      */
-    public function generateToken(int $shipId, string $tokenName = 'Mobile App'): array
+    public function generateToken(int $shipId, string $tokenName = 'Mobile App', ?int $expiryDays = null): array
     {
         // Generate secure random token
         $token = bin2hex(random_bytes(self::TOKEN_LENGTH));
         $tokenHash = hash('sha256', $token);
         
         // Calculate expiry
-        $expiresAt = date('Y-m-d H:i:s', strtotime('+' . self::TOKEN_EXPIRY_DAYS . ' days'));
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+' . ($expiryDays ?? self::TOKEN_EXPIRY_DAYS) . ' days'));
         
         // Store token hash in database
         $this->db->execute(
@@ -75,10 +75,40 @@ class ApiAuth
         if (!$ship || $ship['ship_destroyed']) {
             return null;
         }
-        
+
+        // NPC tokens are only honoured from the worker's source addresses.
+        if (!empty($ship['is_npc']) && !$this->npcSourceAllowed()) {
+            return null;
+        }
+
+        $this->currentTokenHash = $tokenHash;
         return $ship;
     }
     
+    /** Config allow-list check for NPC tokens (default: loopback only). */
+    private function npcSourceAllowed(): bool
+    {
+        $allowed = $this->allowedNpcIps ?? ['127.0.0.1', '::1'];
+        if ($allowed === []) {
+            return false;
+        }
+        return in_array($_SERVER['REMOTE_ADDR'] ?? '', $allowed, true);
+    }
+
+    public function setNpcWorkerIps(array $ips): void
+    {
+        $this->allowedNpcIps = array_values($ips);
+    }
+
+    private ?array $allowedNpcIps = null;
+    private ?string $currentTokenHash = null;
+
+    /** Hash of the token that authenticated this request (rate-limit bucket key). */
+    public function currentTokenHash(): ?string
+    {
+        return $this->currentTokenHash;
+    }
+
     /**
      * Get token from request headers
      */

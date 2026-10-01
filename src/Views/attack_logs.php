@@ -78,13 +78,13 @@
                     </td>
                     <td>
                         <span style="color: <?= $isAttacker ? '#f39c12' : '#3498db' ?>; font-weight: <?= $isAttacker ? 'bold' : 'normal' ?>;">
-                            <?= htmlspecialchars($log['attacker_name']) ?>
+                            <?= htmlspecialchars($log['attacker_name']) ?> <small style="opacity:.7"><?= htmlspecialchars((string)($log['attacker_tier'] ?? '')) ?></small>
                         </span>
                     </td>
                     <td>
                         <?php if ($log['defender_name']): ?>
                             <span style="color: <?= !$isAttacker ? '#f39c12' : '#3498db' ?>; font-weight: <?= !$isAttacker ? 'bold' : 'normal' ?>;">
-                                <?= htmlspecialchars($log['defender_name']) ?>
+                                <?= htmlspecialchars($log['defender_name']) ?> <small style="opacity:.7"><?= htmlspecialchars((string)($log['defender_tier'] ?? '')) ?></small>
                             </span>
                         <?php else: ?>
                             <span style="color: #7f8c8d; font-style: italic;">Sector Defenses</span>

@@ -16,17 +16,19 @@ class Ranking
      * @param int $limit Maximum number of results
      * @return array List of ranked players
      */
-    public function getRankings(string $sortBy = 'score', int $limit = 100): array
+    public function getRankings(string $sortBy = 'score', int $limit = 100, bool $includeNpcs = false): array
     {
         $orderBy = match($sortBy) {
             'turns' => 's.turns_used DESC, s.character_name ASC',
             'login' => 's.last_login DESC, s.character_name ASC',
-            'good' => 'rating DESC, s.character_name ASC',
-            'bad' => 'rating ASC, s.character_name ASC',
+            'good', 'alignment' => 's.alignment DESC, s.character_name ASC',
+            'bad' => 's.alignment ASC, s.character_name ASC',
             'alliance' => 't.team_name DESC, s.character_name ASC',
             'efficiency' => 'efficiency DESC, s.character_name ASC',
             default => 's.score DESC, s.character_name ASC'
         };
+
+        $npcFilter = $includeNpcs ? '' : 'AND s.is_npc = FALSE';
 
         $query = "
             SELECT
@@ -36,7 +38,10 @@ class Ranking
                 s.turns_used,
                 s.last_login,
                 EXTRACT(EPOCH FROM s.last_login) as last_login_timestamp,
-                0 as rating,
+                s.alignment as rating,
+                s.alignment,
+                s.wanted_until,
+                s.is_npc,
                 t.team_name,
                 CASE
                     WHEN s.turns_used < 150 THEN 0
@@ -49,6 +54,7 @@ class Ranking
             FROM ships s
             LEFT JOIN teams t ON s.team = t.id
             WHERE s.ship_destroyed = FALSE
+            {$npcFilter}
             ORDER BY {$orderBy}
             LIMIT " . (int)$limit;
 
@@ -60,10 +66,10 @@ class Ranking
      *
      * @return int Total number of active players
      */
-    public function getPlayerCount(): int
+    public function getPlayerCount(bool $includeNpcs = false): int
     {
         $result = $this->db->fetchOne(
-            'SELECT COUNT(*) as count FROM ships WHERE ship_destroyed = FALSE'
+            'SELECT COUNT(*) as count FROM ships WHERE ship_destroyed = FALSE' . ($includeNpcs ? '' : ' AND is_npc = FALSE')
         );
 
         return (int)($result['count'] ?? 0);
@@ -75,15 +81,16 @@ class Ranking
      * @param int $playerId Player's ship ID
      * @return int|null The player's rank (1-based) or null if not found
      */
-    public function getPlayerRank(int $playerId): ?int
+    public function getPlayerRank(int $playerId, bool $includeNpcs = false): ?int
     {
+        $npc = $includeNpcs ? '' : 'AND is_npc = FALSE';
         $query = "
             SELECT rank FROM (
                 SELECT
                     ship_id,
                     ROW_NUMBER() OVER (ORDER BY score DESC, character_name ASC) as rank
                 FROM ships
-                WHERE ship_destroyed = FALSE
+                WHERE ship_destroyed = FALSE $npc
             ) ranked
             WHERE ship_id = :player_id
         ";
@@ -132,5 +139,23 @@ class Ranking
         $formattedRating = (int)round(sqrt(abs($rating)));
 
         return $rating < 0 ? -$formattedRating : $formattedRating;
+    }
+
+    /**
+     * Faction leaderboard: NPC strength per faction (kept separate from the player top 100).
+     */
+    public function getFactionLeaderboard(): array
+    {
+        return $this->db->fetchAll(
+            "SELECT p.faction,
+                    COUNT(*) AS members,
+                    COUNT(*) FILTER (WHERE s.ship_destroyed = FALSE) AS alive,
+                    COALESCE(SUM(s.score), 0) AS total_score,
+                    COALESCE(MAX(s.score), 0) AS top_score,
+                    COALESCE(SUM(s.credits), 0) AS total_credits
+             FROM npc_profiles p JOIN ships s ON s.ship_id = p.ship_id
+             WHERE (p.state ->> 'retired') IS NULL
+             GROUP BY p.faction ORDER BY total_score DESC"
+        );
     }
 }

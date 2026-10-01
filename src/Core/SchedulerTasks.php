@@ -39,6 +39,19 @@ class SchedulerTasks
             ['turns' => $turnsToAdd, 'max_turns' => $maxTurns]
         );
 
+        // Faction turn multipliers (admin-visible NPC advantage; >1.0 only)
+        foreach ($this->config['npc']['factions'] ?? [] as $faction => $tpl) {
+            $multiplier = (float)($tpl['turn_multiplier'] ?? 1.0);
+            if ($multiplier > 1.0) {
+                $this->db->execute(
+                    "UPDATE ships SET turns = LEAST(turns + :extra, :max_turns)
+                     WHERE is_npc = TRUE AND ship_destroyed = FALSE
+                     AND ship_id IN (SELECT ship_id FROM npc_profiles WHERE faction = :faction)",
+                    ['extra' => (int)round($turnsToAdd * ($multiplier - 1.0)), 'max_turns' => $maxTurns, 'faction' => $faction]
+                );
+            }
+        }
+
         $count = $this->db->fetchOne("SELECT COUNT(*) as count FROM ships WHERE ship_destroyed = FALSE")['count'];
         
         $cyclesInfo = $cycles > 1 ? " ($cycles cycles)" : "";

@@ -6,8 +6,8 @@ namespace BNT\Models;
 
 class Bounty extends Model
 {
-    protected string $table = 'bounty';
-    protected string $primaryKey = 'bounty_id';
+    protected string $table = 'bounties';   // unified table; payouts go through BNT\Services\BountyService
+    protected string $primaryKey = 'id';
 
     /**
      * Get all bounties on a specific player
@@ -17,7 +17,7 @@ class Bounty extends Model
         $sql = "SELECT b.*, s.character_name as placed_by_name
                 FROM {$this->table} b
                 LEFT JOIN ships s ON b.placed_by = s.ship_id
-                WHERE b.bounty_on = :ship_id
+                WHERE b.target_id = :ship_id AND b.claimed_by IS NULL
                 ORDER BY b.amount DESC";
 
         return $this->db->fetchAll($sql, ['ship_id' => $shipId]);
@@ -30,7 +30,7 @@ class Bounty extends Model
     {
         $sql = "SELECT b.*, s.character_name as target_name
                 FROM {$this->table} b
-                JOIN ships s ON b.bounty_on = s.ship_id
+                JOIN ships s ON b.target_id = s.ship_id
                 WHERE b.placed_by = :ship_id
                 ORDER BY b.amount DESC";
 
@@ -44,7 +44,7 @@ class Bounty extends Model
     {
         $sql = "SELECT COALESCE(SUM(amount), 0) as total
                 FROM {$this->table}
-                WHERE bounty_on = :ship_id";
+                WHERE target_id = :ship_id AND claimed_by IS NULL";
 
         $result = $this->db->fetchOne($sql, ['ship_id' => $shipId]);
         return (int)($result['total'] ?? 0);
@@ -62,7 +62,7 @@ class Bounty extends Model
 
         return (bool)$this->create([
             'placed_by' => $placerId,
-            'bounty_on' => $targetId,
+            'target_id' => $targetId,
             'amount' => $amount,
         ]);
     }
@@ -86,7 +86,7 @@ class Bounty extends Model
         $sql = "SELECT s.ship_id, s.character_name, s.score,
                 COALESCE(SUM(b.amount), 0) as total_bounty
                 FROM ships s
-                LEFT JOIN {$this->table} b ON s.ship_id = b.bounty_on
+                LEFT JOIN {$this->table} b ON s.ship_id = b.target_id AND b.claimed_by IS NULL
                 WHERE s.ship_destroyed = FALSE
                 GROUP BY s.ship_id
                 HAVING SUM(b.amount) > 0

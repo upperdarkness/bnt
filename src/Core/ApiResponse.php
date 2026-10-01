@@ -64,6 +64,14 @@ class ApiResponse
         self::error($message, 'NOT_FOUND', 404);
     }
     
+    public static function tooManyRequests(int $retryAfter, int $limit): void
+    {
+        header('Retry-After: ' . $retryAfter);
+        header('X-RateLimit-Limit: ' . $limit);
+        header('X-RateLimit-Remaining: 0');
+        self::error('Rate limit exceeded. Retry in ' . $retryAfter . ' seconds.', 'RATE_LIMITED', 429, ['retry_after' => $retryAfter]);
+    }
+
     public static function validationError(array $errors): void
     {
         self::error('Validation failed', 'VALIDATION_ERROR', 422, ['fields' => $errors]);

@@ -4,10 +4,20 @@ declare(strict_types=1);
 namespace BNT\Models;
 
 use BNT\Core\Database;
+use BNT\Services\AlignmentRules;
 
 class AttackLog
 {
-    public function __construct(private Database $db) {}
+    public function __construct(private Database $db, private ?AlignmentRules $rules = null) {}
+
+    private function tierOf(?int $shipId): ?string
+    {
+        if ($this->rules === null || !$shipId || !$this->rules->config('enabled', true)) {
+            return null;
+        }
+        $row = $this->db->fetchOne('SELECT alignment FROM ships WHERE ship_id = :id', ['id' => $shipId]);
+        return $row ? $this->rules->label((int)$row['alignment']) : null;
+    }
 
     /**
      * Log an attack event
@@ -34,8 +44,8 @@ class AttackLog
     ): int {
         $this->db->execute(
             'INSERT INTO attack_logs
-            (attacker_id, attacker_name, defender_id, defender_name, attack_type, result, damage_dealt, sector)
-            VALUES (:attacker_id, :attacker_name, :defender_id, :defender_name, :attack_type, :result, :damage, :sector)',
+            (attacker_id, attacker_name, defender_id, defender_name, attack_type, result, damage_dealt, sector, attacker_tier, defender_tier)
+            VALUES (:attacker_id, :attacker_name, :defender_id, :defender_name, :attack_type, :result, :damage, :sector, :atier, :dtier)',
             [
                 'attacker_id' => $attackerId,
                 'attacker_name' => $attackerName,
@@ -44,7 +54,9 @@ class AttackLog
                 'attack_type' => $attackType,
                 'result' => $result,
                 'damage' => $damageDealt,
-                'sector' => $sector
+                'sector' => $sector,
+                'atier' => $this->tierOf($attackerId),
+                'dtier' => $this->tierOf($defenderId),
             ]
         );
 

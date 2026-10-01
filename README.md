@@ -200,14 +200,27 @@ Open your browser and visit:
 - Register a new account
 - Start playing!
 
+## Alignment, NPCs and the LLM agent interface
+
+Players have an **alignment** (Paragon .. Pirate) that decides FedSpace protection, starbase prices and whether
+Federation police hunt them. The universe is populated by **NPC factions** (Federation Police, Merchant Guild,
+Xenobe Raiders, Free Captains) that follow the same rules as players, and an optional **LLM worker** can drive
+selected NPCs through the public API via OpenRouter. Everything is off the critical path: scripted behaviour is the
+default and the fallback, and LLM control is disabled until you turn it on.
+
+* Install: apply `database/migrations/add_alignment_npcs.sql`, then see **[docs/ALIGNMENT_AND_NPCS.md](docs/ALIGNMENT_AND_NPCS.md)**.
+* API additions (trading, combat, messaging, alignment, rate limits, agent endpoints): see `API_DOCUMENTATION.md`.
+* Tests: `php tests/run.php` (needs PostgreSQL client tools for the database tests); simulation: `php scripts/npc_simulate.php`.
+
 ## Security Configuration
 
 ### Change Admin Password
 
-Edit `config/config.php` and update the admin password hash:
+Generate a hash (see below) and either set the `ADMIN_PASSWORD_HASH` environment variable or paste the hash into
+`config/config.php`:
 
 ```php
-'admin_password' => password_hash('your_new_password', PASSWORD_DEFAULT),
+'admin_password' => '$2y$10$...your generated hash...',
 ```
 
 ### Generate Strong Passwords
@@ -227,13 +240,19 @@ blacknova/
 ├── public/              # Web root (point your web server here)
 │   ├── index.php        # Application entry point
 │   └── .htaccess        # Apache rewrite rules
+├── bin/
+│   └── npc-agent.php    # LLM NPC worker (OpenRouter), run under systemd or cron
 ├── scripts/             # Utility scripts
 │   ├── create_universe.php  # Universe generator
+│   ├── npc_spawn.php    # Create NPC accounts and issue their API tokens
+│   ├── npc_simulate.php # NPC simulation harness (7 game days on 1,000 sectors)
 │   └── init_db.sh       # Database initialization
 ├── src/                 # Application source code
 │   ├── Controllers/     # Request handlers
 │   ├── Core/            # Core framework components
 │   ├── Models/          # Database models
+│   ├── Services/        # Shared rules: alignment, combat, movement, trade, NPCs, police
+│   ├── NpcAgent/        # LLM worker (API client, OpenRouter client, tools, prompts)
 │   └── Views/           # HTML templates
 ├── composer.json        # Composer configuration
 └── README.md           # This file

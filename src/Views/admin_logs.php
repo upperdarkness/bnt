@@ -34,6 +34,7 @@ ob_start();
     <a href="/admin/players">Players</a>
     <a href="/admin/teams">Teams</a>
     <a href="/admin/universe">Universe</a>
+    <a href="/admin/npcs">NPCs</a>
     <a href="/admin/settings">Settings</a>
     <a href="/admin/logs"><strong>Logs</strong></a>
     <a href="/admin/statistics">Statistics</a>

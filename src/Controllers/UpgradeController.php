@@ -7,6 +7,7 @@ use BNT\Models\Ship;
 use BNT\Models\Upgrade;
 use BNT\Models\Skill;
 use BNT\Core\Session;
+use BNT\Services\TradeService;
 
 class UpgradeController
 {
@@ -15,7 +16,8 @@ class UpgradeController
         private Upgrade $upgradeModel,
         private Skill $skillModel,
         private Session $session,
-        private array $config
+        private array $config,
+        private ?TradeService $tradeService = null
     ) {}
 
     /**
@@ -94,12 +96,11 @@ class UpgradeController
             exit;
         }
 
-        // Get engineering skill discount
-        $skills = $this->skillModel->getSkills($playerId);
-        $engineeringDiscount = $this->skillModel->getEngineeringDiscount($skills['engineering']);
-
-        // Attempt upgrade
-        $result = $this->upgradeModel->upgradeComponent($playerId, $component, $this->config, $engineeringDiscount);
+        // The web page works anywhere (as before); the TradeService applies starbase alignment rules where they apply.
+        $ship = $this->shipModel->find($playerId);
+        $outcome = $this->tradeService->buyUpgrade($ship, $component, false);
+        $result = $outcome['success'] ? $outcome['result'] : ($outcome['details'] ?? ['success' => false, 'error' => $outcome['error']]);
+        $result['success'] = $outcome['success'];
 
         if ($result['success']) {
             $this->session->set('message', sprintf(
@@ -110,10 +111,6 @@ class UpgradeController
                 number_format($result['cost'])
             ));
 
-            // Award skill point every 5 upgrades
-            if (($result['new_level'] % 5) == 0) {
-                $this->skillModel->awardSkillPoints($playerId, 1);
-            }
         } else {
             $this->session->set('error', $result['error'] ?? 'Upgrade failed');
         }

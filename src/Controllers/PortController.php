@@ -10,6 +10,8 @@ use BNT\Models\Universe;
 use BNT\Models\Skill;
 use BNT\Models\ShipType;
 use BNT\Models\Upgrade;
+use BNT\Services\AlignmentService;
+use BNT\Services\TradeService;
 
 class PortController
 {
@@ -18,7 +20,9 @@ class PortController
         private Universe $universeModel,
         private Skill $skillModel,
         private Session $session,
-        private array $config
+        private array $config,
+        private ?TradeService $tradeService = null,
+        private ?AlignmentService $alignment = null
     ) {}
 
     private function requireAuth(): ?array
@@ -74,6 +78,22 @@ class PortController
         // Calculate port prices based on inventory
         $prices = $this->calculatePrices($sector, $tradingConfig, $tradingBonus, $portType);
 
+        // Starbase alignment modifiers (Paragon discount / Outlaw surcharge / Pirate refusal)
+        $refusal = null;
+        $fineQuote = null;
+        if ($this->tradeService) {
+            foreach ($prices as $commodity => $p) {
+                if ($p['buy'] > 0) {
+                    $prices[$commodity]['buy'] = $this->tradeService->adjustPurchase($p['buy'], $ship);
+                }
+            }
+            $refusal = $this->tradeService->starbaseRefusal($ship);
+            $this->tradeService->recordKnownPort((int)$ship['ship_id'], (int)$ship['sector'], $portType);
+            if ($isStarbase && $this->alignment && $this->alignment->enabled()) {
+                $fineQuote = $this->alignment->quoteFine($ship);
+            }
+        }
+
         // Calculate ship capacity
         $maxHolds = $this->calculateHolds($ship['hull'], $ship['ship_type']);
         $usedHolds = $ship['ship_ore'] + $ship['ship_organics'] +
@@ -93,7 +113,7 @@ class PortController
         $showHeader = true;
         
         // Extract variables to make them available to the view
-        extract(compact('ship', 'sector', 'portType', 'prices', 'maxHolds', 'usedHolds', 'isStarbase', 'upgradeInfo', 'session', 'title', 'showHeader', 'config'));
+        extract(compact('ship', 'sector', 'portType', 'prices', 'maxHolds', 'usedHolds', 'isStarbase', 'upgradeInfo', 'refusal', 'fineQuote', 'session', 'title', 'showHeader', 'config'));
 
         ob_start();
         include __DIR__ . '/../Views/port.php';
@@ -120,128 +140,20 @@ class PortController
             exit;
         }
 
-        $sector = $this->universeModel->getSector((int)$ship['sector']);
-        if (!$sector || $sector['port_type'] === 'none') {
-            $this->session->set('error', 'No port in this sector');
-            header('Location: /main');
-            exit;
-        }
-
-        $action = $_POST['action'] ?? '';
-        $commodity = $_POST['commodity'] ?? '';
-        $amount = max(0, (int)($_POST['amount'] ?? 0));
-
-        if (!in_array($action, ['buy', 'sell']) || !in_array($commodity, ['ore', 'organics', 'goods', 'energy'])) {
-            $this->session->set('error', 'Invalid trade parameters');
-            header('Location: /port');
-            exit;
-        }
-
-        $portType = $sector['port_type'];
-
-        // Validate port trading restrictions
-        // When user buys, port sells - so check if port can sell
-        if ($action === 'buy' && !$this->canPortSell($portType, $commodity)) {
-            $this->session->set('error', ucfirst($portType) . ' ports do not sell ' . $commodity);
-            header('Location: /port');
-            exit;
-        }
-
-        // When user sells, port buys - so check if port can buy
-        if ($action === 'sell' && !$this->canPortBuy($portType, $commodity)) {
-            $this->session->set('error', ucfirst($portType) . ' ports do not buy ' . $commodity . ' (they only buy ' . implode(' and ', $this->getPortBuyCommodities($portType)) . ')');
-            header('Location: /port');
-            exit;
-        }
-
-        // Get trading skill bonus
-        $skills = $this->skillModel->getSkills((int)$ship['ship_id']);
-        $tradingBonus = $this->skillModel->getTradingBonus($skills['trading']);
-
-        $tradingConfig = $this->config['trading'];
-        $prices = $this->calculatePrices($sector, $tradingConfig, $tradingBonus, $portType);
-
-        if ($action === 'buy') {
-            $this->buyFromPort($ship, $sector, $commodity, $amount, $prices[$commodity]['buy']);
+        $result = $this->tradeService->trade(
+            (int)$ship['ship_id'],
+            (string)($_POST['commodity'] ?? ''),
+            (string)($_POST['action'] ?? ''),
+            max(0, (int)($_POST['amount'] ?? 0))
+        );
+        if ($result['success']) {
+            $this->session->set('message', $result['message']);
         } else {
-            $this->sellToPort($ship, $sector, $commodity, $amount, $prices[$commodity]['sell']);
+            $this->session->set('error', $result['error']);
         }
 
-        // Award skill points for trading (1 point per 50,000 credits traded)
-        $tradeValue = $amount * ($action === 'buy' ? $prices[$commodity]['buy'] : $prices[$commodity]['sell']);
-        $skillPointsEarned = (int)floor($tradeValue / 50000);
-        if ($skillPointsEarned > 0) {
-            $this->skillModel->awardSkillPoints((int)$ship['ship_id'], $skillPointsEarned);
-        }
-
-        // Refresh ship data after trade to ensure accurate display
         header('Location: /port');
         exit;
-    }
-
-    private function buyFromPort(array $ship, array $sector, string $commodity, int $amount, int $price): void
-    {
-        $portColumn = "port_$commodity";
-        $shipColumn = "ship_$commodity";
-
-        if ($sector[$portColumn] < $amount) {
-            $this->session->set('error', 'Port does not have enough ' . $commodity);
-            return;
-        }
-
-        $cost = $amount * $price;
-        if ($ship['credits'] < $cost) {
-            $this->session->set('error', 'Not enough credits');
-            return;
-        }
-
-        // Check cargo space
-        $maxHolds = $this->calculateHolds($ship['hull'], $ship['ship_type']);
-        $usedHolds = $ship['ship_ore'] + $ship['ship_organics'] +
-                     $ship['ship_goods'] + $ship['ship_energy'] +
-                     $ship['ship_colonists'];
-
-        if ($usedHolds + $amount > $maxHolds) {
-            $this->session->set('error', 'Not enough cargo space');
-            return;
-        }
-
-        // Execute trade
-        $this->universeModel->update((int)$sector['sector_id'], [
-            $portColumn => $sector[$portColumn] - $amount
-        ]);
-
-        $this->shipModel->update((int)$ship['ship_id'], [
-            'credits' => $ship['credits'] - $cost,
-            $shipColumn => $ship[$shipColumn] + $amount
-        ]);
-
-        $this->session->set('message', "Bought $amount $commodity for $cost credits");
-    }
-
-    private function sellToPort(array $ship, array $sector, string $commodity, int $amount, int $price): void
-    {
-        $portColumn = "port_$commodity";
-        $shipColumn = "ship_$commodity";
-
-        if ($ship[$shipColumn] < $amount) {
-            $this->session->set('error', 'You do not have enough ' . $commodity);
-            return;
-        }
-
-        $earnings = $amount * $price;
-
-        // Execute trade
-        $this->universeModel->update((int)$sector['sector_id'], [
-            $portColumn => $sector[$portColumn] + $amount
-        ]);
-
-        $this->shipModel->update((int)$ship['ship_id'], [
-            'credits' => $ship['credits'] + $earnings,
-            $shipColumn => $ship[$shipColumn] - $amount
-        ]);
-
-        $this->session->set('message', "Sold $amount $commodity for $earnings credits");
     }
 
     private function calculatePrices(array $sector, array $tradingConfig, float $tradingBonus = 0.0, string $portType = 'none'): array
@@ -525,6 +437,12 @@ class PortController
             exit;
         }
 
+        if ($refusal = $this->tradeService?->starbaseRefusal($ship)) {
+            $this->session->set('error', $refusal);
+            header('Location: /port');
+            exit;
+        }
+
         $this->purchaseEquipment($ship, $item, $amount);
         header('Location: /port');
         exit;
@@ -540,7 +458,7 @@ class PortController
             ? ($starbaseConfig['fighter_price'] ?? 50)
             : ($starbaseConfig['torpedo_price'] ?? 100);
         
-        $totalCost = $amount * $pricePerUnit;
+        $totalCost = $this->tradeService ? $this->tradeService->adjustPurchase($amount * $pricePerUnit, $ship) : $amount * $pricePerUnit;
 
         if ($ship['credits'] < $totalCost) {
             $this->session->set('error', "Not enough credits. Need $totalCost credits.");
@@ -604,6 +522,12 @@ class PortController
             exit;
         }
 
+        if ($refusal = $this->tradeService?->starbaseRefusal($ship)) {
+            $this->session->set('error', $refusal);
+            header('Location: /port');
+            exit;
+        }
+
         $device = $_POST['device'] ?? '';
         
         if (!in_array($device, ['emergency_warp', 'mine_deflector'])) {
@@ -618,6 +542,9 @@ class PortController
             'mine_deflector' => $starbaseConfig['mine_deflector_price'] ?? 25000,
             default => 0
         };
+        if ($this->tradeService) {
+            $price = $this->tradeService->adjustPurchase((int)$price, $ship);
+        }
 
         if ($ship['credits'] < $price) {
             $this->session->set('error', "Not enough credits. Need " . number_format($price) . " credits.");
@@ -647,6 +574,30 @@ class PortController
 
         $deviceName = $device === 'emergency_warp' ? 'Emergency Warp Drive' : 'Mine Deflector';
         $this->session->set('message', "Purchased $deviceName for " . number_format($price) . " credits");
+        header('Location: /port');
+        exit;
+    }
+
+    /**
+     * Pay the Federation fine (starbase only): restores alignment to the floor and clears Wanted.
+     */
+    public function payFine(): void
+    {
+        $ship = $this->requireAuth();
+
+        $token = $_POST['csrf_token'] ?? '';
+        if (!$this->session->validateCsrfToken($token)) {
+            $this->session->set('error', 'Invalid request');
+            header('Location: /port');
+            exit;
+        }
+
+        $result = $this->alignment->payFine((int)$ship['ship_id']);
+        if ($result['success']) {
+            $this->session->set('message', 'Fine of ' . number_format($result['fine']) . ' credits paid. Your record has been cleared.');
+        } else {
+            $this->session->set('error', $result['error']);
+        }
         header('Location: /port');
         exit;
     }

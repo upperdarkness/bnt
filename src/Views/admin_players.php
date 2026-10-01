@@ -34,6 +34,7 @@ ob_start();
     <a href="/admin/players"><strong>Players</strong></a>
     <a href="/admin/teams">Teams</a>
     <a href="/admin/universe">Universe</a>
+    <a href="/admin/npcs">NPCs</a>
     <a href="/admin/settings">Settings</a>
     <a href="/admin/logs">Logs</a>
     <a href="/admin/statistics">Statistics</a>
@@ -108,6 +109,9 @@ ob_start();
             <td>
                 <a href="/admin/players/<?= (int)$player['ship_id'] ?>/edit" class="btn" style="padding: 5px 10px;">
                     Edit
+                </a>
+                <a href="/admin/players/<?= (int)$player['ship_id'] ?>/alignment" class="btn" style="padding: 5px 10px;">
+                    Alignment
                 </a>
                 <form action="/admin/players/<?= (int)$player['ship_id'] ?>/delete" method="post" style="display: inline;"
                       onsubmit="return confirm('Delete player <?= htmlspecialchars($player['character_name']) ?>? This cannot be undone!');">

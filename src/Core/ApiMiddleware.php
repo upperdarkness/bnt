@@ -7,7 +7,9 @@ namespace BNT\Core;
 class ApiMiddleware
 {
     public function __construct(
-        private ApiAuth $apiAuth
+        private ApiAuth $apiAuth,
+        private ?RateLimiter $rateLimiter = null,
+        private array $config = []
     ) {}
     
     /**
@@ -29,6 +31,21 @@ class ApiMiddleware
             return null;
         }
         
+        // Token bucket per API token: 60/min for players, 30/min for NPCs by default.
+        if ($this->rateLimiter !== null) {
+            $limit = !empty($ship['is_npc'])
+                ? (int)($this->config['api']['rate_limit_npc_per_min'] ?? 30)
+                : (int)($this->config['api']['rate_limit_player_per_min'] ?? 60);
+            $key = $this->apiAuth->currentTokenHash() ?? ('ship:' . $ship['ship_id']);
+            $decision = $this->rateLimiter->consume($key, $limit);
+            header('X-RateLimit-Limit: ' . $decision['limit']);
+            if (!$decision['allowed']) {
+                ApiResponse::tooManyRequests($decision['retry_after'], $decision['limit']);
+                return null;
+            }
+            header('X-RateLimit-Remaining: ' . $decision['remaining']);
+        }
+
         return $ship;
     }
     
