@@ -186,4 +186,7 @@ A rare, very valuable, illegal trade good. Off by default (`contraband.enabled` 
   panel with a warning. Xenobe Raiders smuggle between markets (never through FedSpace or starbases, one run about every
   two hours); Guild and Police never touch it. LLM NPCs see the market and their cargo in the observation, and the
   rules digest tells them it is illegal.
+* **Admin:** the sector editor (`/admin/universe/sector/:id`) has a Black Market checkbox and a stock field. It refuses
+  starbases and Federation zones, caps stock at `contraband.stock_limit`, and switches a port-less sector to the `special`
+  port type so the port page opens.
 * **Not included:** no planet storage, and no sale to ordinary ports.
