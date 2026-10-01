@@ -26,6 +26,19 @@ ob_start();
 </div>
 <?php endif; ?>
 
+<?php if (!empty($alignmentService) && $alignmentService->enabled()): ?>
+<?php $myTier = $alignmentService->rules()->label((int)$ship['alignment']); $iAmWanted = $alignmentService->isWanted($ship); ?>
+<div class="alert alert-info" style="margin-bottom: 20px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <span>
+        Alignment:
+        <strong style="color: <?= $alignmentService->rules()->color((int)$ship['alignment']) ?>;"><?= htmlspecialchars($myTier) ?></strong>
+        (<?= number_format((int)$ship['alignment']) ?>)
+        <?php if ($iAmWanted): ?><span style="background:#c0392b;color:#fff;border-radius:3px;padding:0 6px;margin-left:8px;">WANTED</span><?php endif; ?>
+    </span>
+    <a href="/alignment">Details &rarr;</a>
+</div>
+<?php endif; ?>
+
 <div class="stat-grid">
     <div class="stat-card">
         <div class="stat-label">Turns</div>
@@ -121,7 +134,7 @@ ob_start();
     <tbody>
         <?php foreach ($shipsInSector as $otherShip): ?>
         <tr>
-            <td><?= htmlspecialchars($otherShip['character_name']) ?></td>
+            <td><?= \BNT\Core\ViewHelper::shipName($otherShip, $alignmentService ?? null) ?> <small style="opacity:.7"><?= htmlspecialchars(\BNT\Core\ViewHelper::tierLabel($otherShip, $alignmentService ?? null)) ?></small></td>
             <td><?= number_format($otherShip['score']) ?></td>
             <td><?= $otherShip['team'] ? 'Team #' . $otherShip['team'] : 'None' ?></td>
         </tr>

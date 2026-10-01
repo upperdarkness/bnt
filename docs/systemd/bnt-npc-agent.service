@@ -1,0 +1,21 @@
+[Unit]
+Description=BlackNova Traders LLM NPC worker
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/bnt
+EnvironmentFile=/etc/bnt/npc-agent.env
+ExecStart=/usr/bin/php /var/www/bnt/bin/npc-agent.php
+Restart=always
+RestartSec=5
+# Logs go to journald: journalctl -u bnt-npc-agent -f
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

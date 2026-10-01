@@ -411,6 +411,7 @@
                 <a href="/messages">Messages</a>
                 <a href="/upgrades">Upgrades</a>
                 <a href="/skills">Skills</a>
+                <a href="/alignment">Alignment</a>
                 <a href="/ibank">IGB</a>
                 <a href="/ranking">Rankings</a>
                 <a href="/logout">Logout</a>

@@ -2,3 +2,7 @@
 vendor/
 composer.lock
 .DS_Store
+.env.*
+!.env.example
+npc_tokens.json
+*.tokens.json

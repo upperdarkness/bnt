@@ -37,7 +37,7 @@
                     <td>
                         <?php if ($log['defender_name']): ?>
                             <a href="/player/<?= (int)$log['defender_id'] ?>" style="color: #3498db; text-decoration: none;">
-                                <?= htmlspecialchars($log['defender_name']) ?>
+                                <?= htmlspecialchars($log['defender_name']) ?> <small style="opacity:.7"><?= htmlspecialchars((string)($log['defender_tier'] ?? '')) ?></small>
                             </a>
                         <?php else: ?>
                             <span style="color: #7f8c8d; font-style: italic;">Sector Defenses</span>

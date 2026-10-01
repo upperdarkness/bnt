@@ -37,7 +37,7 @@
                 <tr style="<?= $log['result'] === 'destroyed' ? 'background: rgba(231, 76, 60, 0.1);' : '' ?>">
                     <td>
                         <a href="/player/<?= (int)$log['attacker_id'] ?>" style="color: #e67e22; text-decoration: none; font-weight: bold;">
-                            <?= htmlspecialchars($log['attacker_name']) ?>
+                            <?= htmlspecialchars($log['attacker_name']) ?> <small style="opacity:.7"><?= htmlspecialchars((string)($log['attacker_tier'] ?? '')) ?></small>
                         </a>
                     </td>
                     <td style="text-align: center;">

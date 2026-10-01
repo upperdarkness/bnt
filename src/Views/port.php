@@ -24,6 +24,27 @@ ob_start();
 </div>
 <?php endif; ?>
 
+<?php if (!empty($refusal)): ?>
+<div class="alert alert-error" style="margin-bottom: 20px;"><strong>Service refused.</strong> <?= htmlspecialchars($refusal) ?></div>
+<?php endif; ?>
+
+<?php if ($isStarbase && !empty($fineQuote)): ?>
+<?php if ($fineQuote['applicable']): ?>
+<div class="alert alert-info" style="margin-bottom: 20px;">
+    <strong>⚖️ Federation Office</strong><br>
+    <?php if ($fineQuote['pirate_blocked']): ?>
+        The Federation will not accept a fine from a Pirate. Climb out of the Pirate tier first.
+    <?php else: ?>
+        Pay a fine of <strong><?= number_format($fineQuote['fine']) ?></strong> credits to clear your Wanted status and restore your alignment to <?= (int)$fineQuote['restores_to'] ?>.
+        <form method="POST" action="/port/fine" style="display:inline; margin-left: 10px;">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+            <button type="submit" class="btn" onclick="return confirm('Pay the Federation fine?');">Pay fine</button>
+        </form>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
+<?php endif; ?>
+
 <div class="stat-grid">
     <div class="stat-card">
         <div class="stat-label">Credits</div>

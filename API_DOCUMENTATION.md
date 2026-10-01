@@ -429,6 +429,72 @@ All error responses follow this format:
 
 ---
 
+---
+
+## Trading, combat and alignment endpoints
+
+These are available to every API client (humans and NPCs) and enforce exactly the same rules as the web UI.
+All are authenticated and rate limited. Request bodies are JSON.
+
+### POST `/api/v1/game/port/trade`
+Buy or sell at the port in your sector. Body: `{"commodity": "ore|organics|goods|energy", "action": "buy|sell", "amount": 100}`.
+Starbase prices reflect alignment (Paragon -5%, Outlaw +15% on purchases); Pirates are refused (`SERVICE_REFUSED`, 403).
+Errors: `NO_PORT`, `PORT_WONT_SELL`, `PORT_WONT_BUY`, `PORT_STOCK`, `INSUFFICIENT_CREDITS`, `NO_CARGO_SPACE`, `INVALID_TRADE`.
+
+### POST `/api/v1/game/attack/ship/:id`  ·  POST `/api/v1/game/attack/planet/:id`
+Attack a ship or planet in your sector. Returns the combat outcome (`destroyed`, `damaged`, `escaped`, `captured`).
+Rejected with 403 `STARBASE_NO_COMBAT` in starbase sectors and `FEDSPACE_PROTECTED` when the target is Neutral or better
+in FedSpace (message: "Combat is not allowed in starbase sectors"). Other errors: `TARGET_NOT_FOUND`,
+`TARGET_NOT_IN_SECTOR`, `TEAM_MEMBER`, `INSUFFICIENT_TURNS`, `FACTION_LOYALTY` (NPCs never attack their own faction).
+
+### POST `/api/v1/game/defences`
+Deploy sector defences. Body: `{"fighters": 20, "mines": 5}` (either or both). Mines use your torpedo stock.
+403 `FEDSPACE_NO_DEFENCES` for Outlaws/Pirates in FedSpace, 403 `STARBASE_NO_DEFENCES` in starbase sectors.
+
+### POST `/api/v1/game/planet/:id/transfer`
+Move cargo between your ship and a planet you own and are landed on. Body:
+`{"commodity": "ore|organics|goods|energy|colonists|fighters|credits", "amount": 10, "direction": "to_planet|to_ship"}`.
+
+### POST `/api/v1/game/upgrade/:component`
+Buy one upgrade level (`hull`, `engines`, `power`, `computer`, `sensors`, `beams`, `torp_launchers`, `shields`, `armor`,
+`cloak`). Starbase sectors only (`NOT_STARBASE`, 403).
+
+### GET `/api/v1/game/messages`  ·  POST `/api/v1/game/messages`
+Read your inbox (`?limit=20`) or send `{"ship_id": 12, "text": "...", "subject": "optional"}`. Players: 30/hour, profanity
+filtered. NPC accounts: 280 characters, 5/hour, recipient must be in sight or have messaged within 24 hours.
+
+### GET `/api/v1/game/alignment`
+Your exact alignment, tier, Wanted status, open bounty on you, fine quote and the last 20 changes.
+
+```json
+{ "success": true, "data": { "alignment": -320, "tier": "Outlaw", "wanted": true, "wanted_until": "2026-10-08 12:00:00+00",
+  "open_bounty_on_you": 3000, "fine": { "fine": 32000, "restores_to": -99, "pirate_blocked": false, "applicable": true },
+  "recent_changes": [ { "delta": -100, "new_value": -320, "reason": "attacked_lawful", "related_ship_id": 77, "created_at": "..." } ] } }
+```
+
+### POST `/api/v1/game/bounty`  ·  POST `/api/v1/game/fine`
+`{"target_id": 12, "amount": 20000}` funds a bounty from your IGB balance (min 10,000, non-refundable).
+`/fine` pays the Federation fine at a starbase (clears Wanted, alignment restored to -99; Pirates cannot pay).
+
+Other players appear in `ships_in_sector` with `alignment_tier` and `wanted` only - never the number. NPCs are
+flagged `npc: true` with their faction; whether an LLM drives them is never exposed.
+
+## Agent endpoints (NPC accounts only)
+
+Used by the LLM worker (`bin/npc-agent.php`). Human tokens receive 403. NPC tokens are accepted only from the
+addresses in `npc.worker_ips`.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/v1/agent/observation` | Compact text observation (<= ~1,500 tokens) plus `last_event_id`. Player-written strings appear only inside `<<< >>>`. |
+| `POST /api/v1/agent/go_to/:sector` | Server-side pathfinding (max depth 20); stops early on mines, fighters or a threatening ship. |
+| `GET /api/v1/agent/trades?max_hops=n` | Best buy/sell pairs among ports this ship has discovered (`ship_known_ports`). `max_hops` 1-10. |
+| `POST /api/v1/agent/notebook` | `{"text": "..."}` replaces the private notebook (<= 2,000 characters). |
+
+See `docs/ALIGNMENT_AND_NPCS.md` for the full feature guide.
+
+---
+
 ## CORS
 
 The API supports CORS for cross-origin requests. Preflight OPTIONS requests are automatically handled.
@@ -437,7 +503,14 @@ The API supports CORS for cross-origin requests. Preflight OPTIONS requests are 
 
 ## Rate Limiting
 
-(To be implemented) API requests may be rate-limited in the future to prevent abuse.
+Every authenticated request spends one token from a bucket kept per API token (token bucket, refilled continuously).
+Defaults: **60 requests per minute for players, 30 for NPC accounts** (`api.rate_limit_player_per_min`,
+`api.rate_limit_npc_per_min`). Every response carries `X-RateLimit-Limit` and `X-RateLimit-Remaining`. When the
+bucket is empty the API returns `429` with a `Retry-After` header (seconds):
+
+```json
+{ "success": false, "error": { "message": "Rate limit exceeded. Retry in 2 seconds.", "code": "RATE_LIMITED", "details": { "retry_after": 2 } } }
+```
 
 ---
 

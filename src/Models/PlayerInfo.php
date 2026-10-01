@@ -23,7 +23,11 @@ class PlayerInfo
                 s.character_name,
                 s.ship_name,
                 s.score,
-                s.rating,
+                0 AS rating,
+                s.alignment,
+                s.wanted_until,
+                s.is_npc,
+                p.faction,
                 s.last_login,
                 s.created_at,
                 s.turns_used,
@@ -39,20 +43,21 @@ class PlayerInfo
                 s.shields,
                 s.armor,
                 s.cloak,
-                t.team_id,
+                t.id AS team_id,
                 t.team_name,
-                t.team_description,
+                t.description AS team_description,
                 EXTRACT(EPOCH FROM (NOW() - s.last_login)) as seconds_since_login,
                 CASE
                     WHEN EXTRACT(EPOCH FROM (NOW() - s.last_login)) <= 300 THEN true
                     ELSE false
                 END as is_online
             FROM ships s
-            LEFT JOIN teams t ON s.team_id = t.team_id
+            LEFT JOIN teams t ON s.team = t.id
+            LEFT JOIN npc_profiles p ON p.ship_id = s.ship_id
             WHERE s.ship_id = :player_id
         ";
 
-        return $this->db->fetch($query, ['player_id' => $playerId]);
+        return $this->db->fetchOne($query, ['player_id' => $playerId]);
     }
 
     /**
@@ -74,7 +79,7 @@ class PlayerInfo
             WHERE ship_id = :player_id
         ";
 
-        $result = $this->db->fetch($query, ['player_id' => $playerId]);
+        $result = $this->db->fetchOne($query, ['player_id' => $playerId]);
         return $result ? (int)$result['rank'] : null;
     }
 
@@ -86,7 +91,7 @@ class PlayerInfo
      */
     public function getPlanetCount(int $playerId): int
     {
-        $result = $this->db->fetch(
+        $result = $this->db->fetchOne(
             'SELECT COUNT(*) as count FROM planets WHERE owner = :player_id',
             ['player_id' => $playerId]
         );
@@ -148,7 +153,7 @@ class PlayerInfo
                     ELSE false
                 END as is_online
             FROM ships
-            WHERE team_id = :team_id
+            WHERE team = :team_id
             AND ship_id != :exclude_id
             AND ship_destroyed = FALSE
             ORDER BY score DESC
@@ -170,7 +175,7 @@ class PlayerInfo
     public function getActivitySummary(int $playerId): array
     {
         // Get account age in days
-        $player = $this->db->fetch(
+        $player = $this->db->fetchOne(
             'SELECT EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400 as days_active FROM ships WHERE ship_id = :player_id',
             ['player_id' => $playerId]
         );
@@ -190,7 +195,7 @@ class PlayerInfo
      */
     public function canMessage(int $playerId): bool
     {
-        $result = $this->db->fetch(
+        $result = $this->db->fetchOne(
             'SELECT ship_id FROM ships WHERE ship_id = :player_id AND ship_destroyed = FALSE',
             ['player_id' => $playerId]
         );
@@ -218,7 +223,7 @@ class PlayerInfo
                     ELSE false
                 END as is_online
             FROM ships s
-            LEFT JOIN teams t ON s.team_id = t.team_id
+            LEFT JOIN teams t ON s.team = t.id
             WHERE s.ship_destroyed = FALSE
             AND LOWER(s.character_name) LIKE LOWER(:query)
             ORDER BY s.score DESC

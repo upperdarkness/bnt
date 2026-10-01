@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Alignment system** - per-ship alignment (-10,000..+10,000) with Paragon / Lawful / Neutral / Outlaw / Pirate
+  tiers, every change recorded in `alignment_log`, daily drift toward zero, trading gains capped per day, tier
+  display on profiles, rankings (new alignment sort), sector ship lists and combat logs; exact value only for the
+  owner and admins. Config under `alignment.*`.
+- **Federation enforcement** - FedSpace (`zones.is_federation`) now protects only Neutral-or-better ships; Wanted
+  status, Federation and player bounties on one payout path, starbase surcharge/discount/refusal by tier, Federation
+  fines, police dispatch (`police_dispatch`), `alignment_drift` scheduler task.
+- **NPC framework** - NPC accounts (`scripts/npc_spawn.php`), four factions, respawn cooldown, scripted behaviours
+  for traders, raiders, police and free captains, faction leaderboard, `npc_population` / `npc_scripted_tick` tasks.
+- **LLM agent interface** - `bin/npc-agent.php` worker (OpenRouter, tool calling), `agent/*` API, prompt templates in
+  `config/npc_prompts/`, audit log with wake replay, budgets, kill switch, fallback to scripted control.
+- **API** - trading, attack, defences, planet transfer, upgrade, messaging, alignment, bounty and fine endpoints;
+  per-token rate limiting with `429` + `Retry-After`.
+- **Admin** - NPC list, per-NPC pages, global controls and alerts, per-player alignment log/adjust/clear-Wanted.
+- **Tests** - `php tests/run.php` (unit, database, API integration, worker with a mock OpenRouter server, injection
+  fixtures), `scripts/npc_simulate.php` simulation harness, live injection suite.
+- Docs: `docs/ALIGNMENT_AND_NPCS.md`, systemd unit and env example in `docs/systemd/`.
+
+### Changed
+- Ship/planet combat, defence deployment, movement and port trading now live in shared services
+  (`CombatService`, `MovementService`, `TradeService`) used by the web UI, the API and NPCs.
+- Sector mines no longer hit their own owner or the owner's team; they follow the FedSpace rules.
+- Player profile page repaired against the current schema (it previously failed on removed columns).
+- `.env` is no longer tracked (it was already in `.gitignore`).
+
+### Migration
+- Apply `database/migrations/add_alignment_npcs.sql` (idempotent). The legacy `bounty` table is copied into `bounties`.
+
+### Added (earlier unreleased work)
 - **Starbase System**
   - Configurable starbase percentage (default 5% of ports)
   - Starbases are safe zones where combat is prohibited

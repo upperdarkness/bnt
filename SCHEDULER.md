@@ -84,6 +84,17 @@ The scheduler handles the following tasks:
 - **Details**: 1% degradation per cycle to prevent indefinite fighter deployments
 - **Method**: `SchedulerTasks::degradeFighters()`
 
+### Alignment and NPC tasks
+
+| Task | Interval | Work |
+| --- | --- | --- |
+| `npc_population` | 10 min | Spawns/respawns NPCs to faction targets, refreshes the sector-graph cache, runs health checks and alerts |
+| `npc_scripted_tick` | 2 min | Runs scripted NPCs (and LLM NPCs that fell back); at most 25 NPCs and 200 ms per run |
+| `police_dispatch` | 2 min | Assigns police to Wanted ships, recalls units, stands down temporary units |
+| `alignment_drift` | 24 h | Applies drift, expires Wanted, renews Pirate Wanted, prunes `npc_action_log` / old events / rate buckets |
+
+LLM calls never run inside the scheduler; see `docs/ALIGNMENT_AND_NPCS.md`.
+
 ### Cleanup
 - **Interval**: Every 60 minutes
 - **Function**: Maintains database hygiene

@@ -10,8 +10,23 @@
     <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 20px;">
         <div>
             <h1 style="color: #3498db; margin: 0 0 10px 0; font-size: 32px;">
-                <?= htmlspecialchars($targetPlayer['character_name']) ?>
+                <?= \BNT\Core\ViewHelper::shipName($targetPlayer, $alignmentService ?? null) ?>
             </h1>
+            <?php if (!empty($targetPlayer['is_npc'])): ?>
+                <p style="margin: 0 0 10px 0;">
+                    <span style="padding:3px 10px;border:1px solid #7f8c8d;border-radius:12px;">NPC<?php
+                        $factionLabel = $config['npc']['factions'][$targetPlayer['faction'] ?? '']['label'] ?? null;
+                        echo $factionLabel ? ' &middot; ' . htmlspecialchars($factionLabel) : '';
+                    ?></span>
+                </p>
+            <?php endif; ?>
+            <?php if (!empty($alignmentService) && $alignmentService->enabled()): ?>
+                <p style="margin: 0 0 10px 0;">
+                    Alignment: <strong><?= htmlspecialchars(\BNT\Core\ViewHelper::tierLabel($targetPlayer, $alignmentService)) ?></strong>
+                    <?php if ($isOwnProfile): ?>(<?= number_format((int)$targetPlayer['alignment']) ?>) &middot; <a href="/alignment">details</a><?php endif; ?>
+                    <?php if ($openBounty > 0): ?> &middot; <span style="color:#e74c3c;">Bounty: <?= number_format($openBounty) ?> cr</span><?php endif; ?>
+                </p>
+            <?php endif; ?>
             <?php if ($targetPlayer['ship_name']): ?>
                 <p style="color: #95a5a6; font-size: 18px; margin: 0 0 15px 0;">
                     Ship: <span style="color: #e0e0e0;"><?= htmlspecialchars($targetPlayer['ship_name']) ?></span>

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace BNT\Models;
 
 use BNT\Core\Database;
+use BNT\Services\AlignmentRules;
+use BNT\Services\BountyService;
+use BNT\Services\SectorRules;
 
 class Combat
 {
@@ -13,7 +16,25 @@ class Combat
     private const TORPEDO_PRICE = 25;
     private const LEVEL_FACTOR = 1.5;
 
-    public function __construct(private Database $db) {}
+    public function __construct(
+        private Database $db,
+        private ?AlignmentRules $rules = null,
+        private ?SectorRules $sectors = null,
+        private ?BountyService $bounties = null
+    ) {}
+
+    /**
+     * Whether a defence owned by $ownerAlignment may act on a ship in this sector.
+     * Outside FedSpace (or with alignment disabled) defences always act.
+     */
+    private function defenceMayAct(int $sectorId, int $ownerAlignment, int $victimAlignment): bool
+    {
+        if ($this->rules === null || $this->sectors === null || !$this->rules->config('enabled', true)
+            || !$this->sectors->isFederation($sectorId)) {
+            return true;
+        }
+        return $this->rules->defenceMayAct(true, $ownerAlignment, $victimAlignment);
+    }
 
     /**
      * Calculate if attack is successful based on engines and cloak
@@ -279,17 +300,39 @@ class Combat
             return $result;
         }
 
-        // Get mines in sector
-        $sql = "SELECT SUM(quantity) as total FROM sector_defence
-                WHERE sector_id = :sector AND defence_type = 'M'";
-        $mines = $this->db->fetchOne($sql, ['sector' => $sectorId]);
-
-        if (!$mines || $mines['total'] == 0) {
-            return $result;
+        // Mines that can act on this ship: not its own or its team's, and subject to FedSpace rules
+        $victim = $this->db->fetchOne('SELECT alignment, team FROM ships WHERE ship_id = :id', ['id' => $shipId]);
+        $victimAlign = (int)($victim['alignment'] ?? 0);
+        $victimTeam = (int)($victim['team'] ?? 0);
+        $rows = $this->db->fetchAll(
+            "SELECT sd.ship_id, sd.quantity, s.alignment, s.team
+             FROM sector_defence sd JOIN ships s ON s.ship_id = sd.ship_id
+             WHERE sd.sector_id = :sector AND sd.defence_type = 'M' AND sd.quantity > 0 AND sd.ship_id != :me",
+            ['sector' => $sectorId, 'me' => $shipId]
+        );
+        $totalMines = 0;
+        $topOwner = null;
+        $topQty = 0;
+        foreach ($rows as $row) {
+            if ($victimTeam !== 0 && (int)$row['team'] === $victimTeam) {
+                continue;
+            }
+            if (!$this->defenceMayAct($sectorId, (int)$row['alignment'], $victimAlign)) {
+                continue;
+            }
+            $totalMines += (int)$row['quantity'];
+            if ((int)$row['quantity'] > $topQty) {
+                $topQty = (int)$row['quantity'];
+                $topOwner = (int)$row['ship_id'];
+            }
         }
 
+        if ($totalMines === 0) {
+            return $result;
+        }
+        $result['owner_id'] = $topOwner;
+
         // 20% chance per mine, max 80%
-        $totalMines = (int)$mines['total'];
         $hitChance = min(80, $totalMines * 20);
 
         if (random_int(1, 100) > $hitChance) {
@@ -342,7 +385,7 @@ class Combat
         }
 
         // Get enemy fighters in sector
-        $sql = "SELECT sd.quantity, sd.ship_id, s.team
+        $sql = "SELECT sd.quantity, sd.ship_id, s.team, s.alignment
                 FROM sector_defence sd
                 JOIN ships s ON sd.ship_id = s.ship_id
                 WHERE sd.sector_id = :sector
@@ -358,18 +401,29 @@ class Combat
             return $result;
         }
 
+        $victimAlign = (int)($ship['alignment'] ?? 0);
         $totalEnemyFighters = 0;
+        $topOwner = null;
+        $topQty = 0;
         foreach ($defenses as $defense) {
             // Don't attack team members
             if ($ship['team'] != 0 && $defense['team'] == $ship['team']) {
                 continue;
             }
+            if (!$this->defenceMayAct($sectorId, (int)$defense['alignment'], $victimAlign)) {
+                continue;
+            }
             $totalEnemyFighters += $defense['quantity'];
+            if ((int)$defense['quantity'] > $topQty) {
+                $topQty = (int)$defense['quantity'];
+                $topOwner = (int)$defense['ship_id'];
+            }
         }
 
         if ($totalEnemyFighters == 0) {
             return $result;
         }
+        $result['owner_id'] = $topOwner;
 
         // Fighters attack!
         $result['attacked'] = true;
@@ -439,25 +493,10 @@ class Combat
      */
     public function collectBounty(int $killerId, int $targetId): int
     {
-        $sql = "SELECT SUM(amount) as total FROM bounty WHERE bounty_on = :target";
-        $bounty = $this->db->fetchOne($sql, ['target' => $targetId]);
-
-        if (!$bounty || $bounty['total'] == 0) {
+        if ($this->bounties === null) {
             return 0;
         }
-
-        $total = (int)$bounty['total'];
-
-        // Award bounty to killer
-        $this->db->execute(
-            'UPDATE ships SET credits = credits + :amount WHERE ship_id = :id',
-            ['amount' => $total, 'id' => $killerId]
-        );
-
-        // Remove bounties
-        $this->db->execute('DELETE FROM bounty WHERE bounty_on = :target', ['target' => $targetId]);
-
-        return $total;
+        return $this->bounties->claim($killerId, $targetId);
     }
 
     /**

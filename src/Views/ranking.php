@@ -2,6 +2,7 @@
 
 <div style="margin-bottom: 20px;">
     <a href="/player/search" class="btn">🔍 Search Players</a>
+    <a href="/ranking/factions" class="btn">🏴 Faction Rankings</a>
 </div>
 
 <div class="stat-grid" style="margin-bottom: 25px;">
@@ -57,8 +58,8 @@
                         </a>
                     </th>
                     <th style="width: 100px;">
-                        <a href="/ranking?sort=good" style="color: inherit; text-decoration: none;">
-                            Rating <?= in_array($sortBy, ['good', 'bad']) ? '▼' : '' ?>
+                        <a href="/ranking?sort=alignment" style="color: inherit; text-decoration: none;">
+                            Alignment <?= in_array($sortBy, ['good', 'bad', 'alignment']) ? '▼' : '' ?>
                         </a>
                     </th>
                     <th style="width: 150px;">
@@ -97,13 +98,12 @@
                         <?= $player['last_login'] ? date('M j, Y g:i A', strtotime($player['last_login'])) : 'Never' ?>
                     </td>
                     <td style="text-align: right;">
-                        <?php
-                        $rating = (int)$player['formatted_rating'];
-                        $ratingColor = $rating > 0 ? '#2ecc71' : ($rating < 0 ? '#e74c3c' : '#95a5a6');
-                        ?>
-                        <span style="color: <?= $ratingColor ?>;">
-                            <?= $rating > 0 ? '+' : '' ?><?= number_format($rating) ?>
-                        </span>
+                        <?php if (!empty($alignmentService) && $alignmentService->enabled()): ?>
+                            <span style="color: <?= $alignmentService->rules()->color((int)$player['alignment']) ?>;">
+                                <?= htmlspecialchars($alignmentService->rules()->label((int)$player['alignment'])) ?>
+                            </span>
+                            <?php if ($alignmentService->isWanted($player)): ?><small style="color:#e74c3c">WANTED</small><?php endif; ?>
+                        <?php else: ?>-<?php endif; ?>
                     </td>
                     <td>
                         <?php if ($player['team_name']): ?>
@@ -143,7 +143,7 @@
         <ul style="list-style: none; padding: 0; color: #95a5a6; font-size: 14px;">
             <li style="margin-bottom: 5px;"><strong>Score:</strong> Total points accumulated</li>
             <li style="margin-bottom: 5px;"><strong>Turns:</strong> Total number of turns used</li>
-            <li style="margin-bottom: 5px;"><strong>Rating:</strong> Good (+) / Evil (-) alignment based on actions</li>
+            <li style="margin-bottom: 5px;"><strong>Alignment:</strong> Paragon, Lawful, Neutral, Outlaw or Pirate, based on how a captain treats lawful traders</li>
             <li style="margin-bottom: 5px;"><strong>Status:</strong> Online if active within last 5 minutes</li>
             <li style="margin-bottom: 5px;"><strong>Efficiency:</strong> Score per turn (only shown if turns > 150)</li>
         </ul>

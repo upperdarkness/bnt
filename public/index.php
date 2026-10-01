@@ -13,6 +13,30 @@ use BNT\Core\Scheduler;
 use BNT\Core\SchedulerTasks;
 use BNT\Core\ApiAuth;
 use BNT\Core\ApiMiddleware;
+use BNT\Core\RateLimiter;
+use BNT\Core\NpcSchedulerTasks;
+use BNT\Core\Services;
+use BNT\Services\AgentService;
+use BNT\Services\AlignmentRules;
+use BNT\Services\AlignmentService;
+use BNT\Services\BountyService;
+use BNT\Services\CombatRating;
+use BNT\Services\CombatService;
+use BNT\Services\MessagingService;
+use BNT\Services\MovementService;
+use BNT\Services\NpcControl;
+use BNT\Services\NpcEvents;
+use BNT\Services\NpcMonitor;
+use BNT\Services\NpcScriptedBrain;
+use BNT\Services\NpcService;
+use BNT\Services\NpcSettings;
+use BNT\Services\ObservationBuilder;
+use BNT\Services\PlanetTransferService;
+use BNT\Services\PoliceService;
+use BNT\Services\SectorGraph;
+use BNT\Services\SectorRules;
+use BNT\Services\TextFilter;
+use BNT\Services\TradeService;
 use BNT\Models\Ship;
 use BNT\Models\Universe;
 use BNT\Models\Planet;
@@ -44,6 +68,10 @@ use BNT\Controllers\NewsController;
 use BNT\Controllers\AdminController;
 use BNT\Controllers\ApiAuthController;
 use BNT\Controllers\ApiGameController;
+use BNT\Controllers\ApiActionController;
+use BNT\Controllers\ApiAgentController;
+use BNT\Controllers\AlignmentController;
+use BNT\Controllers\NpcAdminController;
 
 // Load configuration
 $config = require __DIR__ . '/../config/config.php';
@@ -55,10 +83,7 @@ $router = new Router();
 $adminAuth = new AdminAuth($session, $config);
 
 // Initialize models
-$shipModel = new Ship($db);
-$universeModel = new Universe($db);
-$planetModel = new Planet($db);
-$combatModel = new Combat($db);
+extract(Services::create($config, $db));
 $bountyModel = new Bounty($db);
 $teamModel = new Team($db);
 $messageModel = new Message($db);
@@ -66,8 +91,6 @@ $rankingModel = new Ranking($db);
 $upgradeModel = new Upgrade($db);
 $playerInfoModel = new PlayerInfo($db);
 $ibankModel = new IBank($db);
-$attackLogModel = new AttackLog($db);
-$skillModel = new Skill($db);
 
 // Initialize scheduler
 $scheduler = new Scheduler($db, $config);
@@ -83,6 +106,10 @@ $scheduler->registerTask('news_generation', [$schedulerTasks, 'generateNews'], $
 $scheduler->registerTask('fighter_degradation', [$schedulerTasks, 'degradeFighters'], 6);
 $scheduler->registerTask('tow_large_ships', [$schedulerTasks, 'towLargeShips'], 2);
 $scheduler->registerTask('cleanup', [$schedulerTasks, 'cleanup'], 60);
+$scheduler->registerTask('npc_population', [$npcTasks, 'population'], 10);
+$scheduler->registerTask('npc_scripted_tick', [$npcTasks, 'scriptedTick'], 2);
+$scheduler->registerTask('police_dispatch', [$npcTasks, 'policeDispatch'], 2);
+$scheduler->registerTask('alignment_drift', [$npcTasks, 'alignmentDrift'], 1440);
 
 // Run scheduler (executes only tasks that are due)
 // This runs on every page load but only executes tasks when their interval has elapsed
@@ -90,15 +117,15 @@ $scheduler->run();
 
 // Initialize controllers
 $authController = new AuthController($shipModel, $session, $config);
-$gameController = new GameController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config);
-$portController = new PortController($shipModel, $universeModel, $skillModel, $session, $config);
-$combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $attackLogModel, $skillModel, $session, $config);
+$gameController = new GameController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config, $movementService, $alignmentService, $tradeService);
+$portController = new PortController($shipModel, $universeModel, $skillModel, $session, $config, $tradeService, $alignmentService);
+$combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $attackLogModel, $skillModel, $session, $config, $combatService, $alignmentService);
 $planetController = new PlanetController($shipModel, $universeModel, $planetModel, $session, $config);
 $teamController = new TeamController($shipModel, $teamModel, $session, $config);
 $messageController = new MessageController($shipModel, $messageModel, $session, $config);
-$rankingController = new RankingController($rankingModel, $shipModel, $session, $config);
-$upgradeController = new UpgradeController($shipModel, $upgradeModel, $skillModel, $session, $config);
-$playerInfoController = new PlayerInfoController($shipModel, $playerInfoModel, $session, $config);
+$rankingController = new RankingController($rankingModel, $shipModel, $session, $config, $alignmentService);
+$upgradeController = new UpgradeController($shipModel, $upgradeModel, $skillModel, $session, $config, $tradeService);
+$playerInfoController = new PlayerInfoController($shipModel, $playerInfoModel, $session, $config, $alignmentService, $bountyService);
 $ibankController = new IBankController($shipModel, $ibankModel, $session, $config);
 $attackLogController = new AttackLogController($shipModel, $attackLogModel, $session, $config);
 $newsController = new NewsController(new News($db), $shipModel, $session);
@@ -106,12 +133,18 @@ $skillController = new SkillController($shipModel, $skillModel, $session, $confi
 $adminController = new AdminController($shipModel, $universeModel, $planetModel, $teamModel, $session, $adminAuth, $config);
 
 // Initialize API components
-$apiAuth = new ApiAuth($db, $shipModel);
-$apiMiddleware = new ApiMiddleware($apiAuth);
+$apiMiddleware = new ApiMiddleware($apiAuth, !empty($config['api']['rate_limit_enabled']) ? new RateLimiter($db) : null, $config);
 
 // Initialize API controllers
 $apiAuthController = new ApiAuthController($shipModel, $apiAuth, $session, $config);
-$apiGameController = new ApiGameController($shipModel, $universeModel, $planetModel, $combatModel, $apiAuth, $apiMiddleware, $config);
+$apiGameController = new ApiGameController($shipModel, $universeModel, $planetModel, $combatModel, $apiAuth, $apiMiddleware, $config,
+    $movementService, $alignmentService, $tradeService);
+$apiActionController = new ApiActionController($db, $shipModel, $tradeService, $combatService, $planetTransferService,
+    $messagingService, $alignmentService, $bountyService, $apiMiddleware, $config);
+$apiAgentController = new ApiAgentController($shipModel, $observationBuilder, $movementService, $agentService, $apiMiddleware, $config);
+$alignmentController = new AlignmentController($shipModel, $alignmentService, $bountyService, $session, $config);
+$npcAdminController = new NpcAdminController($db, $npcService, $npcSettings, $npcControl, $npcMonitor, $npcEvents,
+    $alignmentService, $session, $adminAuth, $config);
 
 // Define routes
 $router->get('/', fn() => $authController->showLogin());
@@ -135,6 +168,10 @@ $router->post('/port/trade', fn() => $portController->trade());
 $router->post('/port/colonists', fn() => $portController->colonists());
 $router->post('/port/purchase', fn() => $portController->purchase());
 $router->post('/port/purchase-device', fn() => $portController->purchaseDevice());
+$router->post('/port/fine', fn() => $portController->payFine());
+
+$router->get('/alignment', fn() => $alignmentController->show());
+$router->post('/alignment/bounty', fn() => $alignmentController->placeBounty());
 
 $router->get('/combat', fn() => $combatController->show());
 $router->post('/combat/attack/ship/:id', fn($id) => $combatController->attackShip((int)$id));
@@ -174,6 +211,7 @@ $router->post('/messages/mark-all-read', fn() => $messageController->markAllRead
 
 $router->get('/ranking', fn() => $rankingController->index());
 $router->get('/ranking/teams', fn() => $rankingController->teams());
+$router->get('/ranking/factions', fn() => $rankingController->factions());
 
 $router->get('/upgrades', fn() => $upgradeController->index());
 $router->post('/upgrades/upgrade', fn() => $upgradeController->upgrade());
@@ -214,6 +252,16 @@ $router->post('/admin/universe/sector/:id/link/delete', fn($id) => $adminControl
 $router->post('/admin/universe/sector/:id/planet/create', fn($id) => $adminController->createPlanet((int)$id));
 $router->post('/admin/universe/sector/:sid/planet/:pid/delete', fn($sid, $pid) => $adminController->deletePlanet((int)$sid, (int)$pid));
 $router->post('/admin/universe/regenerate', fn() => $adminController->regenerateUniverse());
+$router->get('/admin/players/:id/alignment', fn($id) => $npcAdminController->alignmentPage((int)$id));
+$router->post('/admin/players/:id/alignment', fn($id) => $npcAdminController->adjustAlignment((int)$id));
+$router->post('/admin/players/:id/clear-wanted', fn($id) => $npcAdminController->clearWanted((int)$id));
+$router->get('/admin/npcs', fn() => $npcAdminController->index());
+$router->get('/admin/npcs/global', fn() => $npcAdminController->global());
+$router->post('/admin/npcs/global', fn() => $npcAdminController->updateGlobal());
+$router->get('/admin/npcs/:id', fn($id) => $npcAdminController->show((int)$id));
+$router->post('/admin/npcs/:id/update', fn($id) => $npcAdminController->update((int)$id));
+$router->post('/admin/npcs/:id/wake', fn($id) => $npcAdminController->wake((int)$id));
+$router->get('/admin/npcs/:id/wakes/:wake', fn($id, $wake) => $npcAdminController->replay((int)$id, $wake));
 $router->get('/admin/settings', fn() => $adminController->settings());
 $router->get('/admin/logs', fn() => $adminController->logs());
 $router->get('/admin/statistics', fn() => $adminController->statistics());
@@ -239,6 +287,25 @@ $router->get('/api/v1/game/status', fn() => $apiGameController->status());
 $router->get('/api/v1/game/planet/:id', fn($id) => $apiGameController->planet((int)$id));
 $router->post('/api/v1/game/land/:id', fn($id) => $apiGameController->landOnPlanet((int)$id));
 $router->post('/api/v1/game/leave', fn() => $apiGameController->leavePlanet());
+if (!empty($config['api']['extended_enabled'])) {
+    $router->post('/api/v1/game/port/trade', fn() => $apiActionController->trade());
+    $router->post('/api/v1/game/attack/ship/:id', fn($id) => $apiActionController->attackShip((int)$id));
+    $router->post('/api/v1/game/attack/planet/:id', fn($id) => $apiActionController->attackPlanet((int)$id));
+    $router->post('/api/v1/game/defences', fn() => $apiActionController->defences());
+    $router->post('/api/v1/game/planet/:id/transfer', fn($id) => $apiActionController->planetTransfer((int)$id));
+    $router->post('/api/v1/game/upgrade/:component', fn($component) => $apiActionController->upgrade($component));
+    $router->get('/api/v1/game/messages', fn() => $apiActionController->messagesIndex());
+    $router->post('/api/v1/game/messages', fn() => $apiActionController->messagesSend());
+    $router->get('/api/v1/game/alignment', fn() => $apiActionController->alignment());
+    $router->post('/api/v1/game/bounty', fn() => $apiActionController->placeBounty());
+    $router->post('/api/v1/game/fine', fn() => $apiActionController->payFine());
+
+    // API Routes - NPC agent (NPC accounts only)
+    $router->get('/api/v1/agent/observation', fn() => $apiAgentController->observation());
+    $router->post('/api/v1/agent/go_to/:sector', fn($sector) => $apiAgentController->goTo((int)$sector));
+    $router->get('/api/v1/agent/trades', fn() => $apiAgentController->trades());
+    $router->post('/api/v1/agent/notebook', fn() => $apiAgentController->notebook());
+}
 
 // Dispatch request
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';

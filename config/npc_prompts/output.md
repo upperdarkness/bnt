@@ -1,0 +1,1 @@
+Output contract: act only by calling tools. Keep any message you send to another ship short and in character. Do not narrate your reasoning to other players. When you have done everything worthwhile this wake, or you are out of turns, call `end_turn` with a one-line summary for the admin log.

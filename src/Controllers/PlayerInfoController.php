@@ -13,7 +13,9 @@ class PlayerInfoController
         private Ship $shipModel,
         private PlayerInfo $playerInfoModel,
         private Session $session,
-        private array $config
+        private array $config,
+        private ?\BNT\Services\AlignmentService $alignment = null,
+        private ?\BNT\Services\BountyService $bounties = null
     ) {}
 
     /**
@@ -22,14 +24,14 @@ class PlayerInfoController
     public function show(int $targetPlayerId): void
     {
         // Require authentication
-        $playerId = $this->session->get('player_id');
+        $playerId = $this->session->getUserId();
         if (!$playerId) {
             header('Location: /');
             exit;
         }
 
         // Get current player's ship
-        $ship = $this->shipModel->getShipById($playerId);
+        $ship = $this->shipModel->find($playerId);
         if (!$ship) {
             $this->session->set('error', 'Ship not found');
             header('Location: /');
@@ -81,7 +83,10 @@ class PlayerInfoController
             'activitySummary' => $activitySummary,
             'teamMembers' => $teamMembers,
             'isOwnProfile' => $isOwnProfile,
+            'alignmentService' => $this->alignment,
+            'openBounty' => $this->bounties ? $this->bounties->openTotal($targetPlayerId) : 0,
             'canMessage' => $this->playerInfoModel->canMessage($targetPlayerId),
+            'config' => $this->config,
             'session' => $this->session,
             'title' => 'Player Info: ' . htmlspecialchars($targetPlayer['character_name']),
             'showHeader' => true
@@ -94,14 +99,14 @@ class PlayerInfoController
     public function search(): void
     {
         // Require authentication
-        $playerId = $this->session->get('player_id');
+        $playerId = $this->session->getUserId();
         if (!$playerId) {
             header('Location: /');
             exit;
         }
 
         // Get current player's ship
-        $ship = $this->shipModel->getShipById($playerId);
+        $ship = $this->shipModel->find($playerId);
         if (!$ship) {
             $this->session->set('error', 'Ship not found');
             header('Location: /');

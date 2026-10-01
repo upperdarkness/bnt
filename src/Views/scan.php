@@ -52,7 +52,7 @@ ob_start();
     <tbody>
         <?php foreach ($shipsInSector as $otherShip): ?>
         <tr>
-            <td><?= htmlspecialchars($otherShip['character_name']) ?></td>
+            <td><?= \BNT\Core\ViewHelper::shipName($otherShip, $alignmentService ?? null) ?> <small style="opacity:.7"><?= htmlspecialchars(\BNT\Core\ViewHelper::tierLabel($otherShip, $alignmentService ?? null)) ?></small></td>
             <td><?= number_format($otherShip['score']) ?></td>
             <td>
                 <?php if ($otherShip['team'] == 0): ?>
