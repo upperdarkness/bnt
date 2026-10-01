@@ -118,9 +118,9 @@ class GameController
             exit;
         }
 
-        $messages = array_filter([$result['mine']['message'] ?? null, $result['fighter']['message'] ?? null]);
+        $messages = array_filter([$result['mine']['message'] ?? null, $result['fighter']['message'] ?? null, $result['contraband']['message'] ?? null]);
         if ($messages) {
-            $hit = !empty($result['mine']['hit']) || !empty($result['fighter']['attacked']);
+            $hit = !empty($result['mine']['hit']) || !empty($result['fighter']['attacked']) || !empty($result['contraband']);
             $this->session->set($hit ? 'error' : 'message', implode(' | ', $messages));
         }
 

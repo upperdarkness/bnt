@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fixtures), `scripts/npc_simulate.php` simulation harness, live injection suite.
 - Docs: `docs/ALIGNMENT_AND_NPCS.md`, systemd unit and env example in `docs/systemd/`.
 
+- **Contraband (Void Relics)** - rare illegal trade good at black-market sectors; large alignment cost per deal, Wanted in
+  FedSpace, starbase confiscation, salvage on kill, Raider smuggling. Off by default (`contraband.enabled`).
+  Migration `add_contraband.sql`, `scripts/mark_blackmarkets.php`.
+
 ### Changed
 - Ship/planet combat, defence deployment, movement and port trading now live in shared services
   (`CombatService`, `MovementService`, `TradeService`) used by the web UI, the API and NPCs.

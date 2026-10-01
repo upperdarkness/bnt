@@ -30,7 +30,8 @@ class NpcScriptedBrain
         private SectorGraph $graph,
         private NpcService $npcs,
         private PoliceService $police,
-        private array $config
+        private array $config,
+        private ?ContrabandService $contraband = null
     ) {}
 
     /**
@@ -363,6 +364,14 @@ class NpcScriptedBrain
             }
         }
 
+        // Smuggling: Raiders run Void Relics between black markets (slowly, and never through FedSpace).
+        if ($this->contraband?->enabled()) {
+            $smuggle = $this->smuggle($ship, $state);
+            if ($smuggle !== null) {
+                return $smuggle;
+            }
+        }
+
         // Lay mines on the busiest trade lane.
         $mined = $state['raider']['mined'] ?? [];
         if ((int)$ship['torps'] >= 5 && !empty($ctx['busy_sectors'])) {
@@ -398,6 +407,84 @@ class NpcScriptedBrain
             return ['stalk->' . $victim, $r['success'] && empty($r['hazard'])];
         }
         return $this->wander($ship, 'patrol', true);
+    }
+
+    /** @return array|null an action result, or null when there is nothing to do */
+    private function smuggle(array $ship, array $state): ?array
+    {
+        $shipId = (int)$ship['ship_id'];
+        $plan = $state['smuggle'] ?? [];
+        if (isset($plan['next_at']) && strtotime((string)$plan['next_at']) > time()) {
+            return null;
+        }
+        $avoid = array_merge($this->starbaseSectors(), array_keys($this->police->federationSectors()));
+        $here = (int)$ship['sector'];
+        $carried = (int)$ship['ship_contraband'];
+        $markets = $this->graph->blackMarkets();
+        if (count($markets) < 2) {
+            return null;
+        }
+        $rows = [];
+        foreach ($this->db->fetchAll('SELECT * FROM universe WHERE sector_id = ANY(CAST(:ids AS INT[]))', ['ids' => '{' . implode(',', $markets) . '}']) as $r) {
+            $rows[(int)$r['sector_id']] = $this->contraband->prices($r);
+        }
+        $later = date('c', time() + 120 * 60);
+
+        if ($carried > 0) {
+            $dest = (int)($plan['to'] ?? 0);
+            if (!isset($rows[$dest])) {
+                uasort($rows, static fn($a, $b) => $b['sell'] <=> $a['sell']);
+                $dest = (int)array_key_first(array_diff_key($rows, [$here => 1]));
+            }
+            if ($here === $dest) {
+                $r = $this->trade->trade($shipId, 'contraband', 'sell', $carried);
+                $this->npcs->replaceState($shipId, 'smuggle', ['next_at' => $later]);
+                return ['smuggle:sell ' . ($r['success'] ? $carried : $r['code']), true];
+            }
+            $this->npcs->patchState($shipId, 'smuggle', ['to' => $dest]);
+            $step = $this->stepToward($ship, $dest, $avoid);
+            if ($step === null || !$step['success']) {
+                $this->npcs->replaceState($shipId, 'smuggle', ['next_at' => $later]);
+                return ['smuggle:lost_route', false];
+            }
+            return ['smuggle->' . (int)$step['ship']['sector'], empty($step['hazard'])];
+        }
+
+        // Not carrying: find the best (buy here, sell there) pair and go to the buying market.
+        $best = null;
+        $bestScore = 0.0;
+        foreach ($rows as $a => $pa) {
+            $pathA = $this->graph->path($here, $a, 8, $avoid);
+            if ($pathA === null || $pa['stock'] < 5) {
+                continue;
+            }
+            foreach ($rows as $b => $pb) {
+                if ($b === $a || $this->graph->path($a, $b, 8, $avoid) === null) {
+                    continue;
+                }
+                $profit = $pb['sell'] - $pa['buy'];
+                $score = $profit / (1 + count($pathA));
+                if ($profit > 0 && $score > $bestScore) {
+                    $bestScore = $score;
+                    $best = ['from' => $a, 'to' => $b, 'buy' => $pa['buy']];
+                }
+            }
+        }
+        if ($best === null || (int)$ship['credits'] < $best['buy'] * 5) {
+            $this->npcs->replaceState($shipId, 'smuggle', ['next_at' => date('c', time() + 30 * 60)]);
+            return null;
+        }
+        if ($here === $best['from']) {
+            $units = min(10, intdiv((int)$ship['credits'], $best['buy']), $rows[$here]['stock']);
+            $r = $this->trade->trade($shipId, 'contraband', 'buy', $units);
+            $this->npcs->replaceState($shipId, 'smuggle', $r['success'] ? ['to' => $best['to']] : ['next_at' => $later]);
+            return ['smuggle:buy ' . ($r['success'] ? $units : $r['code']), true];
+        }
+        $step = $this->stepToward($ship, $best['from'], $avoid);
+        if ($step === null || !$step['success']) {
+            return null;
+        }
+        return ['smuggle->' . (int)$step['ship']['sector'], empty($step['hazard'])];
     }
 
     private function weakestNeighbour(array $ship, int $myRating): ?int

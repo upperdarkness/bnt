@@ -15,6 +15,7 @@ use BNT\Services\AlignmentRules;
 use BNT\Services\AlignmentService;
 use BNT\Services\BountyService;
 use BNT\Services\CombatRating;
+use BNT\Services\ContrabandService;
 use BNT\Services\CombatService;
 use BNT\Services\MessagingService;
 use BNT\Services\MovementService;
@@ -60,23 +61,24 @@ class Services
         $s['apiAuth'] = $apiAuth = new ApiAuth($db, $ship);
         $apiAuth->setNpcWorkerIps($config['npc']['worker_ips']);
         $s['textFilter'] = $filter = new TextFilter($config);
-        $s['tradeService'] = $trade = new TradeService($db, $ship, $universe, $skill, $alignment, $sectors, $config);
+        $s['contrabandService'] = $contraband = new ContrabandService($db, $alignment, $sectors, $config);
+        $s['tradeService'] = $trade = new TradeService($db, $ship, $universe, $skill, $alignment, $sectors, $config, $contraband);
         $s['npcControl'] = $control = new NpcControl($db, $settings, $config);
         $s['npcMonitor'] = $monitor = new NpcMonitor($db, $settings, $control, $config);
         $s['combatService'] = $combatService = new CombatService($db, $ship, $universe, $planet, $combat, $attackLog,
-            $skill, $alignment, $sectors, $events, $config, $monitor);
+            $skill, $alignment, $sectors, $events, $config, $monitor, $contraband);
         $s['movementService'] = $movement = new MovementService($db, $ship, $universe, $combat, $alignment,
-            $sectors, $trade, $events, $graph, $config);
+            $sectors, $trade, $events, $graph, $config, $contraband);
         $s['npcService'] = $npcs = new NpcService($db, $alignment, $apiAuth, $sectors, $config);
         $s['policeService'] = $police = new PoliceService($db, $alignment, $npcs, $graph, $config);
         $s['combatRating'] = $rating = new CombatRating($combat);
         $s['npcBrain'] = $brain = new NpcScriptedBrain($db, $ship, $movement, $trade, $combatService,
-            $alignment, $rating, $graph, $npcs, $police, $config);
+            $alignment, $rating, $graph, $npcs, $police, $config, $contraband);
         $s['npcTasks'] = new NpcSchedulerTasks($db, $config, $settings, $npcs, $brain, $control, $monitor, $police, $alignment, $graph);
         $s['messagingService'] = new MessagingService($db, $filter, $events, $config);
         $s['planetTransferService'] = new PlanetTransferService($db);
         $s['agentService'] = new AgentService($db, $trade, $graph, $config);
-        $s['observationBuilder'] = new ObservationBuilder($db, $ship, $planet, $trade, $alignment, $rating, $events, $filter, $config);
+        $s['observationBuilder'] = new ObservationBuilder($db, $ship, $planet, $trade, $alignment, $rating, $events, $filter, $config, $contraband);
         return $s;
     }
 }

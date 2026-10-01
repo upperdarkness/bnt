@@ -121,6 +121,7 @@ class ApiGameController
                 'turns_used' => $result['turns_used'],
                 'mine_result' => $result['mine'],
                 'fighter_result' => $result['fighter'],
+                'contraband' => $result['contraband'] ?? null,
             ],
         ]);
     }

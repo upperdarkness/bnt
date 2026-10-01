@@ -39,7 +39,8 @@ class CombatService
         private SectorRules $sectors,
         private NpcEvents $events,
         private array $config,
-        private ?NpcMonitor $monitor = null
+        private ?NpcMonitor $monitor = null,
+        private ?ContrabandService $contraband = null
     ) {}
 
     // ------------------------------------------------------------------ ships
@@ -168,11 +169,15 @@ class CombatService
             $this->combat->destroyShip($targetId);
             $credits = $this->combat->awardKillCredits((int)$ship['ship_id'], $target);
             $bounty = $this->combat->collectBounty((int)$ship['ship_id'], $targetId);
+            $looted = $this->contraband?->lootOnKill((int)$ship['ship_id'], $targetId) ?? 0;
             $text = "Target destroyed! You earned $credits credits";
             if ($bounty > 0) {
                 $text .= " + $bounty bounty";
             }
             $text .= ' = ' . ($credits + $bounty) . ' total!';
+            if ($looted > 0) {
+                $text .= " You salvaged $looted " . $this->contraband->name() . '.';
+            }
             $this->attackLog->logAttack((int)$ship['ship_id'], $ship['character_name'], $targetId,
                 $target['character_name'], 'ship', 'destroyed', $result['defender_damage'], $sectorId);
             $this->skills->awardSkillPoints((int)$ship['ship_id'], min(5, max(3, (int)floor(($target['rating'] ?? 0) / 20))));
@@ -180,7 +185,7 @@ class CombatService
             $this->events->queue($targetId, 'attacked', ['by' => (int)$ship['ship_id'], 'by_name' => $ship['character_name'],
                 'hull_lost_pct' => 100, 'sector' => $sectorId, 'destroyed' => true]);
             return $this->ok($text, 'message', $base + ['outcome' => 'destroyed', 'credits' => $credits, 'bounty' => $bounty,
-                'damage' => $result['defender_damage']]);
+                'contraband_looted' => $looted, 'damage' => $result['defender_damage']]);
         }
 
         if ($result['defender_damage'] > 0) {

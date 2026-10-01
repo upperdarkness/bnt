@@ -26,7 +26,8 @@ class MovementService
         private TradeService $trade,
         private NpcEvents $events,
         private SectorGraph $graph,
-        private array $config
+        private array $config,
+        private ?ContrabandService $contraband = null
     ) {}
 
     /**
@@ -95,6 +96,7 @@ class MovementService
 
         $this->trade->recordKnownPort($shipId, $destination);
         $this->noteContacts($shipId, $destination);
+        $out['contraband'] = $this->contraband?->inspectArrival($this->shipModel->find($shipId));
         return $this->finish($out, $shipId, false, null);
     }
 

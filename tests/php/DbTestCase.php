@@ -88,7 +88,7 @@ abstract class DbTestCase extends TestCase
     private static function migrations(string $root): array
     {
         $order = ['add_api_tokens', 'add_attack_logs', 'add_planet_economy_news', 'add_port_colonists', 'add_scheduler',
-            'add_ship_types', 'add_skills', 'add_starbases', 'fix_database_setup', 'fix_planet_owner_nullable', 'add_alignment_npcs'];
+            'add_ship_types', 'add_skills', 'add_starbases', 'fix_database_setup', 'fix_planet_owner_nullable', 'add_alignment_npcs', 'add_contraband'];
         $files = [];
         foreach ($order as $m) {
             $f = "$root/database/migrations/$m.sql";

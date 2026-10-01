@@ -104,6 +104,8 @@ return [
             'fedspace_hostile' => -500,    // also sets Wanted
             'destroy_pirate_npc' => 100,   // replaces destroy_outlaw for Xenobe NPCs
             'destroy_trader_npc' => -300,  // replaces destroy_lawful for Guild/Police/Free NPCs
+            'contraband_trade' => -200,    // each contraband buy or sell action (never earns the trading bonus)
+            'contraband_fedspace' => -500, // entering FedSpace carrying contraband (also sets Wanted)
         ],
         'trade_credits_per_point' => 10000,
         'trade_daily_cap' => 20,
@@ -187,6 +189,20 @@ return [
         'rate_limit_player_per_min' => 60,
         'rate_limit_npc_per_min' => 30,
         'player_message_limit_per_hour' => 30,
+    ],
+
+    // Contraband ("Void Relics"): rare, very valuable, illegal. Off until enabled.
+    'contraband' => [
+        'enabled' => filter_var(getenv('CONTRABAND_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN),
+        'name' => 'Void Relics',
+        'base_price' => 1000,            // credits per unit (about 40x goods)
+        'price_swing' => 0.5,            // price rises up to +50% as a market's stock runs low
+        'spread' => 0.10,                // markets buy 10% under and sell 10% over the mid price
+        'stock_limit' => 200,            // per-market stock cap
+        'regeneration_rate' => 0.01,     // of the empty space per port-production cycle
+        'carry_cap' => 50,               // most units one ship may hold
+        'markets_per_1000' => 7,         // black-market sectors per 1,000 sectors (min 2)
+        'starbase_fine' => 50000,        // levied when inspectors confiscate cargo at a starbase
     ],
 
     // Trading Configuration

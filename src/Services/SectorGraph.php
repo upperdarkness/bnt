@@ -73,7 +73,13 @@ class SectorGraph
                 $ports[$id] = ['type' => $row['port_type'], 'starbase' => (bool)$row['is_starbase']];
             }
         }
-        return ['built' => time(), 'links' => $links, 'ports' => $ports, 'zones' => $zones];
+        $markets = [];
+        try {
+            $markets = array_map(static fn($r) => (int)$r['sector_id'], $this->db->fetchAll('SELECT sector_id FROM universe WHERE is_blackmarket'));
+        } catch (\Throwable) {
+            // contraband migration not applied yet
+        }
+        return ['built' => time(), 'links' => $links, 'ports' => $ports, 'zones' => $zones, 'blackmarkets' => $markets];
     }
 
     private function normalise(array $cached): array
@@ -90,6 +96,12 @@ class SectorGraph
     public function port(int $sector): ?array
     {
         return $this->data()['ports'][$sector] ?? null;
+    }
+
+    /** @return int[] */
+    public function blackMarkets(): array
+    {
+        return $this->data()['blackmarkets'] ?? [];
     }
 
     public function zoneOf(int $sector): ?int

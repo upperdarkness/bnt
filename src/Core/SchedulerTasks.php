@@ -72,6 +72,17 @@ class SchedulerTasks
              WHERE port_type IS NOT NULL AND port_type != 'none' AND port_type != 'special'"
         );
 
+        // Black-market contraband stock recovers slowly toward its cap
+        $cb = $this->config['contraband'] ?? [];
+        if (!empty($cb['enabled'])) {
+            $limit = (int)($cb['stock_limit'] ?? 200);
+            $this->db->execute(
+                'UPDATE universe SET port_contraband = LEAST(:lim, port_contraband + CEIL((:lim2 - port_contraband) * CAST(:rate AS NUMERIC)))
+                 WHERE is_blackmarket AND port_contraband < :lim3',
+                ['lim' => $limit, 'lim2' => $limit, 'lim3' => $limit, 'rate' => (float)($cb['regeneration_rate'] ?? 0.01)]
+            );
+        }
+
         $updated = 0;
         foreach ($ports as $port) {
             $portType = $port['port_type'];

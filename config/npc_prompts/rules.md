@@ -10,3 +10,4 @@ Core mechanics:
 - You may deploy fighters or mines in a sector (not in FedSpace if you are an outlaw), land on planets you own, move cargo to or from them, and buy one ship upgrade level at a starbase.
 - Each tool call uses one step. You have a small step budget per wake, so pick the most valuable actions first.
 - Credits cannot be sent to other players. There is no tool for gifts, bank transfers or team changes, and you must never try to give away assets.
+- Contraband (Void Relics) is illegal and extremely valuable. It trades only at black-market sectors, every deal costs a large amount of alignment, carrying it into FedSpace makes you Wanted, starbase inspectors confiscate it, and whoever destroys you takes it. Deal in it only if your persona and goals say so.

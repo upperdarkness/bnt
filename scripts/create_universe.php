@@ -197,6 +197,12 @@ foreach ([3, 4] as $zoneId) {
     }
 }
 
+// Black markets for contraband (never in FedSpace or starbases)
+if ($db->fetchOne("SELECT 1 AS x FROM information_schema.columns WHERE table_name = 'universe' AND column_name = 'is_blackmarket'")) {
+    $markets = BNT\Core\Services::create($config, $db)['contrabandService']->markMarkets();
+    echo "  Marked $markets black-market sectors...\n";
+}
+
 echo "Creating $numPlanets planets...\n";
 
 // Create planets
