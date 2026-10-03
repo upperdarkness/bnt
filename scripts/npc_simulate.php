@@ -139,6 +139,17 @@ function checkInvariants(Database $db, int &$sinceLogId, int $sectors): array
     foreach ($db->fetchAll('SELECT ship_id, alignment FROM ships WHERE alignment NOT BETWEEN -10000 AND 10000 LIMIT 5') as $r) {
         $v[] = "alignment out of range for ship {$r['ship_id']}";
     }
+    // 1b. Newbie protection: nobody attacks a ship that is still in the 'protected' state without ending their own
+    //     protection first, and protected ships are never destroyed or damaged by NPCs.
+    foreach ($db->fetchAll("SELECT a.log_id, a.attacker_name, a.defender_id FROM attack_logs a JOIN ships d ON d.ship_id = a.defender_id
+                            WHERE a.log_id > :since AND a.attack_type = 'ship' AND d.protection_state = 'protected' AND COALESCE(a.damage_dealt, 0) > 0 LIMIT 5", ['since' => $sinceLogId]) as $r) {
+        $v[] = "{$r['attacker_name']} damaged protected ship {$r['defender_id']} (log {$r['log_id']})";
+    }
+    // 1c. Rumours never name protected players.
+    foreach ($db->fetchAll("SELECT r.id FROM rumour_seeds r JOIN ships s ON s.ship_id = NULLIF(r.true_facts ->> 'ship_id', '')::int
+                            WHERE s.protection_state = 'protected' LIMIT 5") as $r) {
+        $v[] = "rumour seed {$r['id']} concerns a protected player";
+    }
     // 2. No combat in a starbase sector; no attack on a Neutral-or-better ship in FedSpace (police vs Wanted excepted).
     $rows = $db->fetchAll(
         "SELECT a.log_id, a.attacker_id, a.attacker_name, a.defender_id, a.attack_type, a.sector, a.defender_tier, u.is_starbase, COALESCE(z.is_federation, FALSE) AS fed,

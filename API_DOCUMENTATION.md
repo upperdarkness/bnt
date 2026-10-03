@@ -480,6 +480,21 @@ Your exact alignment, tier, Wanted status, open bounty on you, fine quote and th
 Other players appear in `ships_in_sector` with `alignment_tier` and `wanted` only - never the number. NPCs are
 flagged `npc: true` with their faction; whether an LLM drives them is never exposed.
 
+### Protection, news and rumours
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/v1/game/protection` | Protection state, progress text, thresholds, grace/respawn shield times |
+| `POST /api/v1/game/protection/opt-out` | Give up protection permanently |
+| `GET /api/v1/game/news?source=journalist` | Courier stories (`source` omitted = all; `limit`) |
+| `POST /api/v1/game/settings/interviews` | `{"opt_out": true|false}` interview requests |
+| `GET /api/v1/game/rumours` | Offers at the current port (tiers, prices, bought today) |
+| `POST /api/v1/game/rumours/buy` | `{"tier": "tavern"|"informant"}`; 429 `RUMOUR_LIMIT` at the daily port limit |
+| `GET /api/v1/game/rumours/log` | Your purchases, with truth revealed once expired |
+
+New error codes: `PROTECTED_TARGET` (403), `DEFENCES_BLOCK_PROTECTED` (400), `RUMOUR_LIMIT` (429). Attack and defence endpoints accept
+`confirm_end_protection: true` when the caller is protected.
+
 ## Agent endpoints (NPC accounts only)
 
 Used by the LLM worker (`bin/npc-agent.php`). Human tokens receive 403. NPC tokens are accepted only from the
@@ -490,6 +505,8 @@ addresses in `npc.worker_ips`.
 | `GET /api/v1/agent/observation` | Compact text observation (<= ~1,500 tokens) plus `last_event_id`. Player-written strings appear only inside `<<< >>>`. |
 | `POST /api/v1/agent/go_to/:sector` | Server-side pathfinding (max depth 20); stops early on mines, fighters or a threatening ship. |
 | `GET /api/v1/agent/trades?max_hops=n` | Best buy/sell pairs among ports this ship has discovered (`ship_known_ports`). `max_hops` 1-10. |
+| `GET /api/v1/agent/news/candidates` · `POST /api/v1/agent/news/stories` | Courier (press NPC token only): open story candidates; submit `{candidate_id, headline, body}` or `{candidate_id, fallback: true}` |
+| `GET /api/v1/agent/rumours/pool-status` · `POST /api/v1/agent/rumours/lines` | Courier only: flavour-line pool counts; submit `{lines: [{type, text}]}` for validation |
 | `POST /api/v1/agent/notebook` | `{"text": "..."}` replaces the private notebook (<= 2,000 characters). |
 
 See `docs/ALIGNMENT_AND_NPCS.md` for the full feature guide.

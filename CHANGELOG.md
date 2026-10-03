@@ -214,3 +214,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Features marked as "Unreleased" are in development or recently added
 - Breaking changes will be clearly marked
 - Security fixes are prioritized and documented
+
+- **Newbie protection** - new and respawned ships are shielded until a score threshold, 14 active days, aggression or opt-out; grace period,
+  planet cover, defence-wall and muling limits, alignment mismatch penalty, shield badges and status progress. Config `protection.*`.
+- **Galactic Courier** - NPC journalist (Talia Venn) writing validated news stories and interview pieces from game-scored candidates, with
+  review mode, retraction, daily digest and an admin queue. Off by default (`news.journalist_enabled`).
+- **Generated rumours** - six rumour types with a 60/25/15 truth model, tavern and informant tiers, per-port daily limit, rumour log and a
+  validated LLM flavour-line pool. Off by default (`rumours.enabled`). New LLM tool `buy_rumour`.
+- Migration `database/migrations/add_protection_news_rumours.sql`; scheduler tasks `protection_tick`, `news_candidates`, `rumour_seeds`.

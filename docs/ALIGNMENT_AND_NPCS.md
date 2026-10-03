@@ -190,3 +190,49 @@ A rare, very valuable, illegal trade good. Off by default (`contraband.enabled` 
   starbases and Federation zones, caps stock at `contraband.stock_limit`, and switches a port-less sector to the `special`
   port type so the port page opens.
 * **Not included:** no planet storage, and no sale to ordinary ports.
+
+## Newbie protection, the Galactic Courier and generated rumours
+
+Apply `database/migrations/add_protection_news_rumours.sql` (idempotent; existing ships are set to `none`, only new ships start protected).
+Protection is on by default (`PROTECTION_ENABLED`); the journalist (`NEWS_JOURNALIST_ENABLED`, with `NEWS_REVIEW_MODE=true` until you trust it)
+and rumours (`RUMOURS_ENABLED`) are off by default and can also be switched from `/admin/news` and `/admin/rumours` without a restart.
+
+### Protection
+
+* **Who:** new ships start `protected`; a ship rebuilt after an escape pod gets a 24 h respawn shield (once per 7 days).
+  Protected ships and their oldest three planets cannot be attacked (`PROTECTED_TARGET`, 403), mines/fighters/defences in
+  a sector don't hurt them and don't block their moves (`DEFENCES_BLOCK_PROTECTED`, 400), and scripted Raiders cannot see them.
+* **Exit:** score at 25% of the active-player median (floor 10,000), 14 active days, attacking, deploying defences, or an
+  opt-out. A first aggressive action needs confirmation (`confirm_end_protection`), then protection ends at once. Natural
+  exits start a 12 h grace period (attackable; the player gets a message and a news item from the Courier).
+* **Abuse limits:** credit transfers between protected and unprotected accounts are capped at 50,000 a day; teams may hold at most two protected
+  members; a protected ship cannot capture a planet to build a defence wall (`PROTECTED_NO_DEFENCE_WALL`); signup IP/device matches are flagged on `/admin/protection`.
+* **Mismatch penalty:** attacking a target scoring under 25% of your score doubles the alignment penalty (logged as `*_mismatch`).
+* Scheduler: `protection_tick` every 10 minutes ends expired shields and applies natural exits.
+
+### The Courier (Talia Venn)
+
+* The game scores events (`news_candidates`: base x magnitude x prominence x rivalry x recency), at most 6 stories plus a daily digest. Events
+  of score 50 or more may generate interview requests (messages to the participants; replies of at most 25 words are quoted).
+* The worker (`ContentWorker`, inside `bin/npc-agent.php`) gets a fact sheet and writes prose with `{{slot}}` placeholders. The **server** validates it
+  (no digits, capitalised words, unknown or missing slots, accusations next to player names, profanity, real-world terms, length), substitutes the
+  real names/sectors/quotes, then publishes (or queues it when review mode is on). One retry with the validator's feedback, then the template news item stands.
+  Quotations are only ever player replies via `{{quote_n}}`. Everything the model saw, said and was told is in `npc_action_log` under the Courier.
+* Admins can approve, reject (with reason) or retract (publishes a correction) from `/admin/news`.
+
+### Rumours
+
+* Six types (fat cargo, soft target, price spike, Wanted sighting, Raider nest, rich world). Each purchase draws a truth state (60 true / 25 stale / 15 false;
+  the informant moves 15 points towards true) from a real game fact and perturbs it for stale/false ones. Wording comes from the approved `rumour_lines` pool
+  (LLM-written, validated, approved on `/admin/rumours`) with template fallbacks. Protected players never appear in rumours.
+* Prices: 1,000 (tavern, names a region of ten sectors) and 10,000 (informant, exact sector), 1 turn, three per port per day, seeds expire after 6-24 h.
+  Players can see their rumour log (and, afterwards, whether each was true) on the status page.
+
+### Interpretation notes
+
+* "Active median" uses players seen in the last 7 days (`protection.active_player_days`), percentile configurable.
+* Grace period ships are attackable; set `protection.grace_protects` to change that.
+* Existing ships are not retro-protected; admins can grant protection from `/admin/protection`.
+* Endpoints: `/game/protection`, `/game/protection/opt-out`, `/game/news?source=journalist`, `/game/rumours`, `/game/rumours/buy`, `/game/rumours/log`,
+  agent (press token only): `/agent/news/candidates`, `/agent/news/stories`, `/agent/rumours/pool-status`, `/agent/rumours/lines`.
+* Suggested rollout: 1) protection, 2) journalist in review mode, 3) rumours with manual line approval, 4) relax review once the rejection rate is low.
