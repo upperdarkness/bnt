@@ -24,6 +24,19 @@ ob_start();
 </div>
 <?php endif; ?>
 
+<?php if (!empty($rumourOffers) && $rumourOffers['port']): ?>
+<div class="alert alert-info" style="margin-bottom: 20px;">
+    <strong>🍺 Buy a rumour</strong> (1 turn each, <?= (int)$rumourOffers['bought_today'] ?> of <?= (int)$rumourOffers['daily_limit'] ?> bought here today)<br>
+    <small style="color:#95a5a6;">Rumours come from real events but are usually, not always, true. Your status page logs each one and reveals later whether it was.</small>
+    <form method="POST" action="/rumours/buy" style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+        <button class="btn" name="tier" value="tavern" type="submit">Tavern talk &middot; <?= number_format($rumourOffers['tavern']['price']) ?> cr</button>
+        <button class="btn" name="tier" value="informant" type="submit">Paid informant &middot; <?= number_format($rumourOffers['informant']['price']) ?> cr</button>
+    </form>
+    <small style="color:#95a5a6;">Tavern talk names a region of about ten sectors. A paid informant gives the exact sector and is more likely to be right.</small>
+</div>
+<?php endif; ?>
+
 <?php if (!empty($blackMarket)): ?>
 <div class="alert alert-error" style="margin-bottom: 20px; background: rgba(155, 89, 182, 0.2); border-color: #9b59b6;">
     <strong>🕳️ Black Market: <?= htmlspecialchars($blackMarket['name']) ?></strong><br>

@@ -15,7 +15,11 @@ use BNT\Services\AlignmentRules;
 use BNT\Services\AlignmentService;
 use BNT\Services\BountyService;
 use BNT\Services\CombatRating;
+use BNT\Services\ContentValidator;
 use BNT\Services\ContrabandService;
+use BNT\Services\FeatureSettings;
+use BNT\Services\NewsService;
+use BNT\Services\RumourService;
 use BNT\Services\CombatService;
 use BNT\Services\MessagingService;
 use BNT\Services\MovementService;
@@ -46,7 +50,8 @@ class Services
     /** @return array<string,object> keyed by the variable names public/index.php uses */
     public static function create(array $config, Database $db): array
     {
-        $s = [];
+        $config = FeatureSettings::apply($db, $config);   // admin overrides for protection / news / rumours switches
+        $s = ['config' => $config];
         $s['shipModel'] = $ship = new Ship($db);
         $s['universeModel'] = $universe = new Universe($db);
         $s['planetModel'] = $planet = new Planet($db);
@@ -84,6 +89,10 @@ class Services
         $s['messagingService'] = new MessagingService($db, $filter, $events, $config);
         $s['planetTransferService'] = new PlanetTransferService($db);
         $s['agentService'] = new AgentService($db, $trade, $graph, $config);
+        $s['contentValidator'] = $validator = new ContentValidator($filter, $config);
+        $s['rumourService'] = $rumours = new RumourService($db, $graph, $protection, $validator, $config);
+        $s['newsService'] = $news = new NewsService($db, $validator, $filter, $press, $protection, $config);
+        $s['contentTasks'] = new ContentSchedulerTasks($protection, $news, $rumours);
         $s['observationBuilder'] = new ObservationBuilder($db, $ship, $planet, $trade, $alignment, $rating, $events, $filter, $config, $contraband);
         return $s;
     }

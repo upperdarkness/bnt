@@ -9,6 +9,27 @@ $shipTypeInfo = \BNT\Models\ShipType::getInfo($ship['ship_type'] ?? 'balanced');
 
 <h2><?= htmlspecialchars($ship['character_name']) ?> - Ship Status</h2>
 
+<?php if (!empty($protectionProgress) && ($protectionProgress['protected'] || $protectionProgress['state'] === 'grace')): ?>
+<div class="alert alert-info" style="margin-bottom: 20px;">
+    <strong>🛡️ <?= htmlspecialchars($protectionProgress['text']) ?></strong>
+    <?php if ($protectionProgress['state'] === 'protected'): ?>
+        <div style="margin-top:6px; font-size: 13px;">
+            Protection ends at the first of: <?= (int)$protectionProgress['active_days_needed'] ?> active days, a score of
+            <?= number_format($protectionProgress['score_needed']) ?>, attacking anyone, deploying sector defences, or opting out.
+            Closest: <strong><?= $protectionProgress['closest'] === 'days' ? 'active days' : 'score' ?></strong>.
+        </div>
+        <form method="POST" action="/protection/opt-out" style="margin-top:10px;" onsubmit="return confirm('Give up newbie protection permanently?');">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+            <button class="btn" type="submit">Give up protection</button>
+        </form>
+    <?php elseif ($protectionProgress['respawn_shield_until']): ?>
+        <div style="margin-top:6px; font-size: 13px;">Respawn shield until <?= htmlspecialchars(date('M j, g:i A', strtotime($protectionProgress['respawn_shield_until']))) ?>.</div>
+    <?php endif; ?>
+</div>
+<?php elseif (!empty($protectionProgress['respawn_shield_until'])): ?>
+<div class="alert alert-info" style="margin-bottom: 20px;">🛡️ <?= htmlspecialchars($protectionProgress['text']) ?></div>
+<?php endif; ?>
+
 <div style="background: rgba(15, 76, 117, 0.3); padding: 15px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.3); margin-bottom: 20px; text-align: center;">
     <img class="ship-portrait" src="<?= \BNT\Core\GameArtwork::ship($ship['ship_type'] ?? 'balanced') ?>" alt="<?= htmlspecialchars($shipTypeInfo['name']) ?> spacecraft" width="1280" height="1280">
     <div style="color: <?= $shipTypeInfo['color'] ?>; font-size: 20px; font-weight: bold; margin-bottom: 5px;"><?= htmlspecialchars($shipTypeInfo['name']) ?></div>
@@ -213,6 +234,39 @@ $shipTypeInfo = \BNT\Models\ShipType::getInfo($ship['ship_type'] ?? 'balanced');
 <div style="margin-top: 30px;">
     <a href="/main" class="btn">Back to Main</a>
 </div>
+
+<?php if (!empty($session)): ?>
+<div style="margin-top: 30px;">
+    <h3>Courier interviews</h3>
+    <form method="POST" action="/settings/interviews" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+        <?php $optedOut = !empty($ship['interview_opt_out']); ?>
+        <span><?= $optedOut ? 'You have opted out of interview requests.' : 'The Galactic Courier may ask you for a quote about big stories.' ?></span>
+        <input type="hidden" name="opt_out" value="<?= $optedOut ? '0' : '1' ?>">
+        <button class="btn" type="submit"><?= $optedOut ? 'Allow interview requests' : 'Opt out of interview requests' ?></button>
+    </form>
+    <small style="color:#7f8c8d;">You can't opt out of being named in factual news.</small>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($rumourLog)): ?>
+<div style="margin-top: 30px;">
+    <h3>Rumour log</h3>
+    <table>
+        <thead><tr><th>Bought</th><th>Tier</th><th>Rumour</th><th>Outcome</th></tr></thead>
+        <tbody>
+        <?php foreach ($rumourLog as $r): ?>
+            <tr>
+                <td><?= htmlspecialchars(date('M j g:i A', strtotime((string)$r['purchased_at']))) ?></td>
+                <td><?= htmlspecialchars($r['tier']) ?></td>
+                <td><?= htmlspecialchars($r['text']) ?></td>
+                <td><?= $r['expired'] ? htmlspecialchars((string)$r['explanation']) : '<span style="color:#7f8c8d;">Not yet expired (until ' . htmlspecialchars(date('M j g:i A', strtotime((string)$r['expires_at']))) . ')</span>' ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
 
 <?php
 $content = ob_get_clean();

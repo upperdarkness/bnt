@@ -23,7 +23,8 @@ class NewsController
             header('Location: /');
             exit;
         }
-        $items = $this->news->recent(100);
+        $source = in_array($_GET['source'] ?? '', ['journalist', 'system'], true) ? $_GET['source'] : null;
+        $items = $this->news->recent(100, $source);
         $session = $this->session;
         include __DIR__ . '/../Views/news.php';
     }

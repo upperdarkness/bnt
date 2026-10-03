@@ -23,7 +23,8 @@ class PortController
         private array $config,
         private ?TradeService $tradeService = null,
         private ?AlignmentService $alignment = null,
-        private ?\BNT\Services\ContrabandService $contraband = null
+        private ?\BNT\Services\ContrabandService $contraband = null,
+        private ?\BNT\Services\RumourService $rumours = null
     ) {}
 
     private function requireAuth(): ?array
@@ -118,13 +119,15 @@ class PortController
             ];
         }
 
+        $rumourOffers = $this->rumours && $this->rumours->enabled() ? $this->rumours->offers($ship) : null;
+
         $session = $this->session;
         $config = $this->config;
         $title = 'Port - BlackNova Traders';
         $showHeader = true;
         
         // Extract variables to make them available to the view
-        extract(compact('ship', 'sector', 'portType', 'prices', 'maxHolds', 'usedHolds', 'isStarbase', 'upgradeInfo', 'refusal', 'fineQuote', 'blackMarket', 'session', 'title', 'showHeader', 'config'));
+        extract(compact('ship', 'sector', 'portType', 'prices', 'maxHolds', 'usedHolds', 'isStarbase', 'upgradeInfo', 'refusal', 'fineQuote', 'blackMarket', 'rumourOffers', 'session', 'title', 'showHeader', 'config'));
 
         ob_start();
         include __DIR__ . '/../Views/port.php';

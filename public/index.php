@@ -72,6 +72,8 @@ use BNT\Controllers\ApiActionController;
 use BNT\Controllers\ApiAgentController;
 use BNT\Controllers\AlignmentController;
 use BNT\Controllers\NpcAdminController;
+use BNT\Controllers\ApiContentController;
+use BNT\Controllers\ContentWebController;
 
 // Load configuration
 $config = require __DIR__ . '/../config/config.php';
@@ -112,6 +114,9 @@ $scheduler->registerTask('npc_population', [$npcTasks, 'population'], 10);
 $scheduler->registerTask('npc_scripted_tick', [$npcTasks, 'scriptedTick'], 2);
 $scheduler->registerTask('police_dispatch', [$npcTasks, 'policeDispatch'], 2);
 $scheduler->registerTask('alignment_drift', [$npcTasks, 'alignmentDrift'], 1440);
+$scheduler->registerTask('protection_tick', [$contentTasks, 'protectionTick'], 10);
+$scheduler->registerTask('news_candidates', [$contentTasks, 'newsCandidates'], 30);
+$scheduler->registerTask('rumour_seeds', [$contentTasks, 'rumourSeeds'], 60);
 
 // Run scheduler (executes only tasks that are due)
 // This runs on every page load but only executes tasks when their interval has elapsed
@@ -119,8 +124,8 @@ $scheduler->run();
 
 // Initialize controllers
 $authController = new AuthController($shipModel, $session, $config);
-$gameController = new GameController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config, $movementService, $alignmentService, $tradeService);
-$portController = new PortController($shipModel, $universeModel, $skillModel, $session, $config, $tradeService, $alignmentService, $contrabandService);
+$gameController = new GameController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config, $movementService, $alignmentService, $tradeService, $protectionService, $rumourService);
+$portController = new PortController($shipModel, $universeModel, $skillModel, $session, $config, $tradeService, $alignmentService, $contrabandService, $rumourService);
 $combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $attackLogModel, $skillModel, $session, $config, $combatService, $alignmentService);
 $planetController = new PlanetController($shipModel, $universeModel, $planetModel, $session, $config, $protectionService);
 $teamController = new TeamController($shipModel, $teamModel, $session, $config);
@@ -143,7 +148,10 @@ $apiGameController = new ApiGameController($shipModel, $universeModel, $planetMo
     $movementService, $alignmentService, $tradeService);
 $apiActionController = new ApiActionController($db, $shipModel, $tradeService, $combatService, $planetTransferService,
     $messagingService, $alignmentService, $bountyService, $apiMiddleware, $config);
-$apiAgentController = new ApiAgentController($shipModel, $observationBuilder, $movementService, $agentService, $apiMiddleware, $config);
+$apiAgentController = new ApiAgentController($shipModel, $observationBuilder, $movementService, $agentService, $apiMiddleware, $config,
+    $db, $newsService, $rumourService);
+$apiContentController = new ApiContentController($db, $shipModel, $protectionService, $rumourService, $apiMiddleware, $config);
+$contentWebController = new ContentWebController($shipModel, $protectionService, $rumourService, $session);
 $alignmentController = new AlignmentController($shipModel, $alignmentService, $bountyService, $session, $config);
 $npcAdminController = new NpcAdminController($db, $npcService, $npcSettings, $npcControl, $npcMonitor, $npcEvents,
     $alignmentService, $session, $adminAuth, $config);
@@ -171,6 +179,9 @@ $router->post('/port/colonists', fn() => $portController->colonists());
 $router->post('/port/purchase', fn() => $portController->purchase());
 $router->post('/port/purchase-device', fn() => $portController->purchaseDevice());
 $router->post('/port/fine', fn() => $portController->payFine());
+$router->post('/protection/opt-out', fn() => $contentWebController->optOut());
+$router->post('/settings/interviews', fn() => $contentWebController->interviews());
+$router->post('/rumours/buy', fn() => $contentWebController->rumourBuy());
 
 $router->get('/alignment', fn() => $alignmentController->show());
 $router->post('/alignment/bounty', fn() => $alignmentController->placeBounty());
@@ -301,12 +312,23 @@ if (!empty($config['api']['extended_enabled'])) {
     $router->get('/api/v1/game/alignment', fn() => $apiActionController->alignment());
     $router->post('/api/v1/game/bounty', fn() => $apiActionController->placeBounty());
     $router->post('/api/v1/game/fine', fn() => $apiActionController->payFine());
+    $router->get('/api/v1/game/protection', fn() => $apiContentController->protection());
+    $router->post('/api/v1/game/protection/opt-out', fn() => $apiContentController->optOut());
+    $router->get('/api/v1/game/news', fn() => $apiContentController->news());
+    $router->get('/api/v1/game/rumours', fn() => $apiContentController->rumourOffers());
+    $router->post('/api/v1/game/rumours/buy', fn() => $apiContentController->rumourBuy());
+    $router->get('/api/v1/game/rumours/log', fn() => $apiContentController->rumourLog());
+    $router->post('/api/v1/game/settings/interviews', fn() => $apiContentController->interviews());
 
     // API Routes - NPC agent (NPC accounts only)
     $router->get('/api/v1/agent/observation', fn() => $apiAgentController->observation());
     $router->post('/api/v1/agent/go_to/:sector', fn($sector) => $apiAgentController->goTo((int)$sector));
     $router->get('/api/v1/agent/trades', fn() => $apiAgentController->trades());
     $router->post('/api/v1/agent/notebook', fn() => $apiAgentController->notebook());
+    $router->get('/api/v1/agent/news/candidates', fn() => $apiAgentController->newsCandidates());
+    $router->post('/api/v1/agent/news/stories', fn() => $apiAgentController->newsStory());
+    $router->get('/api/v1/agent/rumours/pool-status', fn() => $apiAgentController->rumourPoolStatus());
+    $router->post('/api/v1/agent/rumours/lines', fn() => $apiAgentController->rumourLines());
 }
 
 // Dispatch request
