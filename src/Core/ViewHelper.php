@@ -16,10 +16,12 @@ class ViewHelper
     public static function shipName(array $ship, ?AlignmentService $alignment): string
     {
         $name = (string)($ship['character_name'] ?? '');
+        $shield = ($alignment !== null && $alignment->isProtectedRow($ship))
+            ? ' <span class="protected-badge" title="Under newbie protection">🛡️</span>' : '';
         if ($alignment === null || !$alignment->enabled() || !array_key_exists('alignment', $ship)) {
-            return htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+            return htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . $shield;
         }
-        $html = $alignment->rules()->styledName($name, (int)$ship['alignment'], $alignment->isWanted($ship));
+        $html = $alignment->rules()->styledName($name, (int)$ship['alignment'], $alignment->isWanted($ship)) . $shield;
         if (!empty($ship['is_npc'])) {
             $html .= ' <span class="npc-badge" title="Non-player character" style="font-size:0.75em;opacity:.7">[NPC]</span>';
         }

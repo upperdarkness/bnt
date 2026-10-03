@@ -50,7 +50,7 @@ $admin->exec('CREATE DATABASE ' . $dbName);
 $pdo = new PDO($dsn($dbName), $base['username'], $base['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $files = [$root . '/database/schema.sql'];
 foreach (['add_api_tokens', 'add_attack_logs', 'add_planet_economy_news', 'add_port_colonists', 'add_scheduler', 'add_ship_types',
-    'add_skills', 'add_starbases', 'fix_database_setup', 'fix_planet_owner_nullable', 'add_alignment_npcs', 'add_contraband'] as $m) {
+    'add_skills', 'add_starbases', 'fix_database_setup', 'fix_planet_owner_nullable', 'add_alignment_npcs', 'add_contraband', 'add_protection_news_rumours'] as $m) {
     $files[] = $root . "/database/migrations/$m.sql";
 }
 foreach ($files as $f) {

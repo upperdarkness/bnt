@@ -40,12 +40,13 @@ class CombatService
         private NpcEvents $events,
         private array $config,
         private ?NpcMonitor $monitor = null,
-        private ?ContrabandService $contraband = null
+        private ?ContrabandService $contraband = null,
+        private ?ProtectionService $protection = null
     ) {}
 
     // ------------------------------------------------------------------ ships
 
-    public function attackShip(array $ship, int $targetId): array
+    public function attackShip(array $ship, int $targetId, bool $confirmEndProtection = false): array
     {
         $sectorId = (int)$ship['sector'];
         $flags = $this->sectors->flags($sectorId);
@@ -70,6 +71,16 @@ class CombatService
             return $this->refuse('Not enough turns', 'INSUFFICIENT_TURNS');
         }
 
+        // Newbie protection: protected ships cannot be attacked; a protected attacker must accept losing it.
+        if ($this->protection) {
+            if ($this->protection->isProtected($target)) {
+                return $this->refuse('That ship is under newbie protection', 'PROTECTED_TARGET');
+            }
+            if ($this->protection->isProtected($ship) && !$confirmEndProtection) {
+                return $this->refuse('Attacking will end your newbie protection. Confirm to continue.', 'PROTECTION_CONFIRM');
+            }
+        }
+
         $attackerProfile = $this->alignment->profile((int)$ship['ship_id']) + ['sector' => $sectorId];
         $targetProfile = $this->alignment->profile($targetId);
         $inFed = $this->alignment->enabled() && $flags['federation'];
@@ -90,6 +101,8 @@ class CombatService
             $this->monitor?->friendlyFire($attackerProfile, $targetProfile);
             return $this->refuse('You cannot attack a member of your own faction', 'FACTION_LOYALTY');
         }
+
+        $this->protection?->onAggressiveAction($ship);
 
         $skills = $this->skills->getSkills((int)$ship['ship_id']);
         $combatSkillMultiplier = $this->skills->getCombatMultiplier($skills['combat']);
@@ -202,7 +215,7 @@ class CombatService
 
     // ---------------------------------------------------------------- planets
 
-    public function attackPlanet(array $ship, int $planetId): array
+    public function attackPlanet(array $ship, int $planetId, bool $confirmEndProtection = false): array
     {
         $sectorId = (int)$ship['sector'];
         $flags = $this->sectors->flags($sectorId);
@@ -223,6 +236,20 @@ class CombatService
             return $this->refuse('Need at least 5 turns to attack a planet', 'INSUFFICIENT_TURNS');
         }
 
+        if ($this->protection) {
+            if ($this->protection->isPlanetProtected($planet)) {
+                return $this->refuse('That planet is under newbie protection', 'PROTECTED_TARGET');
+            }
+            if ($this->protection->isProtected($ship)) {
+                if ($this->protection->hostileDefencesIn($sectorId, $ship)) {
+                    return $this->refuse('A protected ship cannot claim or capture a planet in a sector where another player has defences', 'PROTECTED_NO_DEFENCE_WALL');
+                }
+                if (!$confirmEndProtection) {
+                    return $this->refuse('Attacking will end your newbie protection. Confirm to continue.', 'PROTECTION_CONFIRM');
+                }
+            }
+        }
+
         $ownerId = $planet['owner'] !== null ? (int)$planet['owner'] : 0;
         $ownerProfile = $ownerId > 0 ? $this->alignment->profile($ownerId) : null;
         if ($ownerProfile && (int)$ship['team'] !== 0 && (int)$ownerProfile['team'] === (int)$ship['team']) {
@@ -241,6 +268,7 @@ class CombatService
             return $this->refuse($decision['message'], 'FEDSPACE_PROTECTED');
         }
         $offence = $decision['fedspace_offence'];
+        $this->protection?->onAggressiveAction($ship);
 
         $skills = $this->skills->getSkills((int)$ship['ship_id']);
         $total = $this->skills->getCombatMultiplier($skills['combat']) * ShipType::getCombatMultiplier($ship['ship_type']);
@@ -314,7 +342,7 @@ class CombatService
     // -------------------------------------------------------------- defences
 
     /** @param string $type 'F' fighters or 'M' mines (mines use the torpedo stock, as in the web UI) */
-    public function deployDefence(array $ship, string $type, int $quantity): array
+    public function deployDefence(array $ship, string $type, int $quantity, bool $confirmEndProtection = false): array
     {
         $sectorId = (int)$ship['sector'];
         $flags = $this->sectors->flags($sectorId);
@@ -335,6 +363,14 @@ class CombatService
         $column = $type === 'F' ? 'ship_fighters' : 'torps';
         if ((int)$ship[$column] < $quantity) {
             return $this->refuse("Not enough $name", 'INSUFFICIENT_STOCK');
+        }
+
+        // Sector defences are hostile acts: a protected ship must accept losing protection to deploy them.
+        if ($this->protection && $this->protection->isProtected($ship)) {
+            if (!$confirmEndProtection) {
+                return $this->refuse('Deploying sector defences will end your newbie protection. Confirm to continue.', 'PROTECTION_CONFIRM');
+            }
+            $this->protection->onAggressiveAction($ship);
         }
 
         $existing = $this->db->fetchOne(

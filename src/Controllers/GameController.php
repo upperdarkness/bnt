@@ -50,6 +50,9 @@ class GameController
     public function main(): void
     {
         $ship = $this->requireAuth();
+        if (($ship['protection_state'] ?? 'none') !== 'none') {
+            $this->shipModel->markActive((int)$ship['ship_id']);
+        }
 
         // If on planet, leave it automatically when accessing main
         if ($ship['on_planet']) {

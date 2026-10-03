@@ -89,7 +89,7 @@
                     <td>
                         <a href="/player/<?= (int)$player['ship_id'] ?>" style="color: #3498db; font-weight: bold; text-decoration: none;">
                             <?= htmlspecialchars($player['character_name']) ?>
-                        </a>
+                        </a><?= (!empty($alignmentService) && $alignmentService->isProtectedRow($player)) ? ' <span title="Under newbie protection">🛡️</span>' : '' ?>
                     </td>
                     <td style="text-align: right;">
                         <?= number_format((int)$player['turns_used']) ?>

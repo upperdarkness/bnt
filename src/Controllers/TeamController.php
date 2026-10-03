@@ -340,7 +340,7 @@ class TeamController
         if ($result) {
             $this->session->set('message', 'You have joined the team!');
         } else {
-            $this->session->set('error', 'Invitation not found or expired');
+            $this->session->set('error', 'Invitation not found or expired, or the team already has its quota of protected members');
         }
 
         header('Location: /teams');

@@ -118,7 +118,7 @@ class NpcSchedulerTasks
         $spend = $this->control->spendToday();
         $candidates = $this->db->fetchAll(
             "SELECT p.*, s.turns FROM npc_profiles p JOIN ships s ON s.ship_id = p.ship_id
-             WHERE s.ship_destroyed = FALSE AND s.turns >= 1 AND (p.state ->> 'retired') IS NULL
+             WHERE s.ship_destroyed = FALSE AND s.turns >= 1 AND (p.state ->> 'retired') IS NULL AND p.faction <> 'press'
              ORDER BY (p.state -> 'script' ->> 'last_tick') ASC NULLS FIRST, p.ship_id
              LIMIT " . ($maxNpcs * 4)
         );

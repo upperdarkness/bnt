@@ -91,6 +91,8 @@ $rankingModel = new Ranking($db);
 $upgradeModel = new Upgrade($db);
 $playerInfoModel = new PlayerInfo($db);
 $ibankModel = new IBank($db);
+$ibankModel->setProtection($protectionService);
+$teamModel->setProtection($protectionService);
 
 // Initialize scheduler
 $scheduler = new Scheduler($db, $config);
@@ -120,7 +122,7 @@ $authController = new AuthController($shipModel, $session, $config);
 $gameController = new GameController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config, $movementService, $alignmentService, $tradeService);
 $portController = new PortController($shipModel, $universeModel, $skillModel, $session, $config, $tradeService, $alignmentService, $contrabandService);
 $combatController = new CombatController($shipModel, $universeModel, $planetModel, $combatModel, $attackLogModel, $skillModel, $session, $config, $combatService, $alignmentService);
-$planetController = new PlanetController($shipModel, $universeModel, $planetModel, $session, $config);
+$planetController = new PlanetController($shipModel, $universeModel, $planetModel, $session, $config, $protectionService);
 $teamController = new TeamController($shipModel, $teamModel, $session, $config);
 $messageController = new MessageController($shipModel, $messageModel, $session, $config);
 $rankingController = new RankingController($rankingModel, $shipModel, $session, $config, $alignmentService);

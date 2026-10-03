@@ -7,7 +7,14 @@ use BNT\Core\Database;
 
 class IBank
 {
+    private ?\BNT\Services\ProtectionService $protection = null;
+
     public function __construct(private Database $db) {}
+
+    public function setProtection(\BNT\Services\ProtectionService $protection): void
+    {
+        $this->protection = $protection;
+    }
 
     /**
      * Get player's bank account information
@@ -17,7 +24,7 @@ class IBank
      */
     public function getAccount(int $shipId): ?array
     {
-        return $this->db->fetch(
+        return $this->db->fetchOne(
             'SELECT * FROM ibank_accounts WHERE ship_id = :ship_id',
             ['ship_id' => $shipId]
         );
@@ -37,7 +44,7 @@ class IBank
         }
 
         // Get ship credits
-        $ship = $this->db->fetch(
+        $ship = $this->db->fetchOne(
             'SELECT credits FROM ships WHERE ship_id = :ship_id',
             ['ship_id' => $shipId]
         );
@@ -149,6 +156,14 @@ class IBank
             return ['success' => false, 'error' => 'Cannot transfer to yourself'];
         }
 
+        // Newbie protection: capped daily transfers between protected and non-protected accounts
+        if ($this->protection) {
+            $check = $this->protection->creditTransferAllowed($fromShipId, $toShipId, $amount);
+            if (!$check['allowed']) {
+                return ['success' => false, 'error' => $check['error']];
+            }
+        }
+
         // Calculate fee and total
         $fee = (int)round($amount * $paymentFee);
         $total = $amount + $fee;
@@ -166,7 +181,7 @@ class IBank
         }
 
         // Get recipient name
-        $recipient = $this->db->fetch(
+        $recipient = $this->db->fetchOne(
             'SELECT character_name FROM ships WHERE ship_id = :ship_id',
             ['ship_id' => $toShipId]
         );
@@ -185,6 +200,11 @@ class IBank
             $this->db->execute(
                 'UPDATE ibank_accounts SET balance = balance + :amount WHERE ship_id = :ship_id',
                 ['amount' => $amount, 'ship_id' => $toShipId]
+            );
+
+            $this->db->execute(
+                'INSERT INTO igb_transfers (from_ship, to_ship, amount) VALUES (:f, :t, :a)',
+                ['f' => $fromShipId, 't' => $toShipId, 'a' => $amount]
             );
 
             $this->db->commit();
@@ -226,7 +246,7 @@ class IBank
         }
 
         // Calculate net worth (simplified - you may want to expand this)
-        $ship = $this->db->fetch(
+        $ship = $this->db->fetchOne(
             'SELECT credits, score FROM ships WHERE ship_id = :ship_id',
             ['ship_id' => $shipId]
         );

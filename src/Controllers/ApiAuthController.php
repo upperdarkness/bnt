@@ -73,6 +73,14 @@ class ApiAuthController
                 'dev_escapepod' => false,
                 'sector' => 1,
             ]);
+            // Respawn shield: a short breather after being rebuilt (once per cooldown)
+            if (!empty($this->config['protection']['enabled'])) {
+                $this->shipModel->grantRespawnShield(
+                    (int)$ship['ship_id'],
+                    (int)$this->config['protection']['respawn_shield_hours'],
+                    (int)$this->config['protection']['respawn_shield_cooldown_days']
+                );
+            }
             
             // Reload ship after respawn
             $ship = $this->shipModel->find((int)$ship['ship_id']);
@@ -144,6 +152,7 @@ class ApiAuthController
                 $this->config['game'],
                 $shipType
             );
+            $this->shipModel->recordSignup($shipId, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_X_DEVICE_ID'] ?? ($_POST['device_id'] ?? null));
             
             $ship = $this->shipModel->find($shipId);
             $tokenData = $this->apiAuth->generateToken($shipId, 'iPhone App');

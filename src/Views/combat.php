@@ -1,4 +1,9 @@
 <?php
+$iAmProtected = !empty($alignmentService) && $alignmentService->isProtectedRow($ship);
+$protWarn = $iAmProtected ? ' WARNING: this ends your newbie protection.' : '';
+$protHidden = $iAmProtected ? '<input type="hidden" name="confirm_protection" value="1">' : '';
+?>
+<?php
 $title = 'Combat - BlackNova Traders';
 $showHeader = true;
 ob_start();
@@ -67,10 +72,13 @@ ob_start();
                 <td>
                     <?php if ($isStarbaseSector): ?>
                     <span style="color: #7f8c8d;">Protected Zone</span>
+                    <?php elseif (!empty($alignmentService) && $alignmentService->isProtectedRow($otherShip)): ?>
+                    <span style="color: #7f8c8d;">🛡️ Under newbie protection</span>
                     <?php elseif ($ship['team'] == 0 || $otherShip['team'] != $ship['team']): ?>
                     <form action="/combat/attack/ship/<?= (int)$otherShip['ship_id'] ?>" method="post" style="display: inline;"
-                          onsubmit="return confirm('Are you sure you want to attack <?= htmlspecialchars($otherShip['character_name']) ?>?');">
+                          onsubmit="return confirm('Are you sure you want to attack <?= htmlspecialchars($otherShip['character_name']) ?>?<?= $protWarn ?>');">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <?= $protHidden ?>
                         <button type="submit" class="btn" style="background: rgba(231, 76, 60, 0.3); border-color: #e74c3c;">
                             Attack
                         </button>
@@ -115,8 +123,9 @@ ob_start();
                     <span style="color: #7f8c8d;">Protected Zone</span>
                     <?php elseif ($planet['owner'] != 0 && $planet['owner'] != $ship['ship_id']): ?>
                     <form action="/combat/attack/planet/<?= (int)$planet['planet_id'] ?>" method="post" style="display: inline;"
-                          onsubmit="return confirm('Are you sure you want to attack this planet? Costs 5 turns.');">
+                          onsubmit="return confirm('Are you sure you want to attack this planet? Costs 5 turns.<?= $protWarn ?>');">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                        <?= $protHidden ?>
                         <button type="submit" class="btn" style="background: rgba(231, 76, 60, 0.3); border-color: #e74c3c;">
                             Attack (5 turns)
                         </button>
@@ -200,8 +209,9 @@ ob_start();
                 On ship: <?= number_format($ship['ship_fighters']) ?> | 
                 Deployed here: <?= number_format($totalMyFighters) ?>
             </p>
-            <form action="/combat/deploy" method="post">
+            <form action="/combat/deploy" method="post" <?= $iAmProtected ? 'onsubmit="return confirm(\'Deploying sector defences ends your newbie protection. Continue?\');"' : '' ?>>
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                <?= $protHidden ?>
                 <input type="hidden" name="defense_type" value="F">
                 <label>Quantity:</label>
                 <input type="number" name="quantity" min="1" max="<?= (int)$ship['ship_fighters'] ?>" value="10">
@@ -218,8 +228,9 @@ ob_start();
                 On ship: <?= number_format($ship['torps']) ?> | 
                 Deployed here: <?= number_format($totalMyMines ?? 0) ?>
             </p>
-            <form action="/combat/deploy" method="post">
+            <form action="/combat/deploy" method="post" <?= $iAmProtected ? 'onsubmit="return confirm(\'Deploying sector defences ends your newbie protection. Continue?\');"' : '' ?>>
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+                <?= $protHidden ?>
                 <input type="hidden" name="defense_type" value="M">
                 <label>Quantity:</label>
                 <input type="number" name="quantity" min="1" max="<?= (int)$ship['torps'] ?>" value="5">

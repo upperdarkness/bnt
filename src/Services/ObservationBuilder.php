@@ -92,6 +92,9 @@ class ObservationBuilder
             if ($this->alignment->isWanted($o)) {
                 $s .= ' WANTED';
             }
+            if ($this->alignment->isProtectedRow($o)) {
+                $s .= ' PROTECTED(cannot be attacked)';
+            }
             if (!empty($o['is_npc'])) {
                 $s .= ' NPC=' . ($this->config['npc']['factions'][$o['faction']]['label'] ?? 'unknown');
             }

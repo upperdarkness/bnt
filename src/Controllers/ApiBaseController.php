@@ -14,7 +14,7 @@ abstract class ApiBaseController
         'NOT_FOUND' => 404, 'TARGET_NOT_FOUND' => 404, 'PLANET_NOT_FOUND' => 404, 'RECIPIENT_NOT_FOUND' => 404,
         'FEDSPACE_PROTECTED' => 403, 'STARBASE_NO_COMBAT' => 403, 'STARBASE_NO_DEFENCES' => 403, 'FEDSPACE_NO_DEFENCES' => 403,
         'SERVICE_REFUSED' => 403, 'NOT_OWNER' => 403, 'NOT_STARBASE' => 403, 'FORBIDDEN' => 403,
-        'MESSAGE_RATE_LIMITED' => 429, 'FACTION_LOYALTY' => 403,
+        'MESSAGE_RATE_LIMITED' => 429, 'FACTION_LOYALTY' => 403, 'PROTECTED_TARGET' => 403, 'PROTECTION_CONFIRM' => 409, 'RUMOUR_LIMIT' => 429, 'STORY_REJECTED' => 422,
     ];
 
     protected ApiMiddleware $middleware;
@@ -51,6 +51,13 @@ abstract class ApiBaseController
             ApiResponse::error((string)($result['error'] ?? $result['text'] ?? 'Action failed'), $code, self::STATUS[$code] ?? 400);
         }
         ApiResponse::success($data + ($result['data'] ?? []), $message ?? ($result['message'] ?? $result['text'] ?? null));
+    }
+
+    /** Boolean flag from the JSON body or form. */
+    protected function flag(string $key): bool
+    {
+        $b = $this->body();
+        return !empty($b[$key]) && $b[$key] !== 'false' && $b[$key] !== '0';
     }
 
     protected function intParam(array $body, string $key): int

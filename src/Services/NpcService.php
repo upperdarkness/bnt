@@ -21,6 +21,7 @@ class NpcService
         'guild' => ['cautious and courteous', 'shrewd and talkative'],
         'xenobe' => ['cruel and opportunistic', 'patient and vengeful'],
         'free' => ['restless and curious', 'roguish and witty'],
+        'press' => ['wry and observant', 'earnest and nosy'],
     ];
 
     private const GOALS = [
@@ -28,6 +29,7 @@ class NpcService
         'guild' => ['Make steady profit trading between ports.', 'Avoid fights; flee toward FedSpace if outgunned.'],
         'xenobe' => ['Prey on weak traders and lay mines on busy lanes.', 'Never attack other Xenobe Raiders.'],
         'free' => ['Trade for profit and seize clear opportunities.', 'Avoid combat unless the odds are overwhelming.'],
+        'press' => ['Report the news accurately and fairly.', 'Never take sides or invent anything.'],
     ];
 
     public function __construct(
@@ -83,10 +85,10 @@ class NpcService
             $row = $this->db->fetchOne(
                 'INSERT INTO ships (email, password_hash, character_name, ship_name, ship_type,
                     hull, engines, power, computer, sensors, beams, torp_launchers, shields, armor, cloak,
-                    ship_fighters, torps, armor_pts, credits, turns, ship_energy, sector, is_npc, last_login, skill_trading, skill_combat)
+                    ship_fighters, torps, armor_pts, credits, turns, ship_energy, sector, is_npc, last_login, skill_trading, skill_combat, protection_state)
                  VALUES (:email, :hash, :name, :ship_name, :ship_type,
                     :hull, :engines, :power, :computer, :sensors, :beams, :torp_launchers, :shields, :armor, 0,
-                    :fighters, :torps, :armor_pts, :credits, :turns, :energy, :sector, TRUE, NOW(), :skill_trading, :skill_combat)
+                    :fighters, :torps, :armor_pts, :credits, :turns, :energy, :sector, TRUE, NOW(), :skill_trading, :skill_combat, :prot)
                  RETURNING ship_id',
                 [
                     'email' => $email,
@@ -108,6 +110,7 @@ class NpcService
                     'sector' => $sector,
                     'skill_trading' => (int)($loadout['skill_trading'] ?? 0),
                     'skill_combat' => (int)($loadout['skill_combat'] ?? 0),
+                    'prot' => 'none',   // NPCs never get protection
                 ]
             );
             $shipId = (int)$row['ship_id'];
