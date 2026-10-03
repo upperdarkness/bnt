@@ -75,6 +75,18 @@ $worker = new Worker(
     }
 );
 
+$worker->setContentWorker(new \BNT\NpcAgent\ContentWorker(
+    $store,
+    new ApiClient(getenv('NPC_API_BASE_URL') ?: $npc['api_base_url']),
+    new OpenRouterClient(getenv('OPENROUTER_URL') ?: $npc['openrouter_url'], $apiKey, $npc['price_per_million'] ?? ['input' => 3.0, 'output' => 15.0]),
+    $config,
+    $tokensFile,
+    $npc['prompt_dir'],
+    static function (string $line): void {
+        fwrite(STDOUT, $line . "\n");
+    }
+));
+
 if (function_exists('pcntl_async_signals')) {
     pcntl_async_signals(true);
     foreach ([SIGTERM, SIGINT] as $sig) {

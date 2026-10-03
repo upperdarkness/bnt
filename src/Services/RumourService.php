@@ -181,12 +181,12 @@ class RumourService
         }
         $hours = in_array($type, ['fat_cargo', 'wanted_sighting'], true) ? (int)$this->cfg('expiry_hours_moving', 6) : (int)$this->cfg('expiry_hours_other', 24);
         $zone = $this->db->fetchOne('SELECT zone_id FROM universe WHERE sector_id = :s', ['s' => (int)($facts['sector'] ?? 0)]);
-        $this->db->query(
+        // Straight PDO: Database::query() would turn the string 'true' into a boolean.
+        $this->db->getConnection()->prepare(
             'INSERT INTO rumour_seeds (type, shown_facts, true_facts, truth_state, zone_scope, expires_at)
-             VALUES (:t, CAST(:shown AS JSONB), CAST(:true AS JSONB), :state, NULL, now() + make_interval(hours => :h))',
-            ['t' => $type, 'shown' => json_encode($this->publicFacts($shown)), 'true' => json_encode($true + ['_zone' => $zone['zone_id'] ?? null]),
-             'state' => $state, 'h' => $hours]
-        );
+             VALUES (:t, CAST(:shown AS JSONB), CAST(:true AS JSONB), :state, NULL, now() + make_interval(hours => :h))'
+        )->execute(['t' => $type, 'shown' => json_encode($this->publicFacts($shown)),
+            'true' => json_encode($true + ['_zone' => $zone['zone_id'] ?? null]), 'state' => $state, 'h' => $hours]);
     }
 
     /** Only the facts a buyer is told: never entity ids. */

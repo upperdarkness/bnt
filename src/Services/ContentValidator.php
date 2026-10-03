@@ -143,6 +143,17 @@ class ContentValidator
         return false;
     }
 
+    /** Does the text contain an accusation term anywhere? (Used to keep such claims out of quotes the Courier prints.) */
+    public static function hasAccusationTerm(string $text): bool
+    {
+        foreach (preg_split('/[^\p{L}\p{N}-]+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $w) {
+            if (preg_match(self::ACCUSATIONS, $w)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Replace {{slot}} markers with values. Unknown slots are left alone (validation prevents them). */
     public static function fill(string $template, array $values): string
     {

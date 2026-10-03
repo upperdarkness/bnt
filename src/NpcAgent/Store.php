@@ -49,6 +49,25 @@ class Store
         };
     }
 
+    /** A dotted feature switch (e.g. news.review_mode) with admin overrides from npc_settings. */
+    public function feature(string $dotted, bool $default): bool
+    {
+        $this->setting('llm_enabled');   // refreshes the override cache
+        if (array_key_exists($dotted, $this->overrides ?? [])) {
+            return in_array(strtolower((string)$this->overrides[$dotted]), ['1', 't', 'true', 'yes', 'on'], true);
+        }
+        return $default;
+    }
+
+    public function pressShipId(): ?int
+    {
+        $row = $this->pdo->query(
+            "SELECT p.ship_id FROM npc_profiles p JOIN ships s ON s.ship_id = p.ship_id
+             WHERE p.faction = 'press' AND s.ship_destroyed = FALSE ORDER BY p.ship_id LIMIT 1"
+        )->fetch();
+        return $row ? (int)$row['ship_id'] : null;
+    }
+
     public function heartbeat(): void
     {
         $this->pdo->exec('INSERT INTO npc_worker_status (id, heartbeat_at) VALUES (1, now())

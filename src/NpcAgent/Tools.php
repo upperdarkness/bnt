@@ -13,7 +13,7 @@ namespace BNT\NpcAgent;
 class Tools
 {
     private const PLAYER_TEXT_KEYS = ['character_name', 'planet_name', 'owner_name', 'team_name', 'sector_name', 'ship_name',
-        'from_name', 'subject', 'message', 'beacon', 'name'];
+        'from_name', 'subject', 'message', 'beacon', 'name', 'text'];
     private const DROP_KEYS = ['password_hash', 'email', 'token', 'trade_credit_accum', 'api_key'];
     private const SHIP_KEEP = ['ship_id', 'sector', 'turns', 'credits', 'armor_pts', 'ship_fighters', 'torps', 'ship_ore', 'ship_organics', 'ship_goods', 'ship_energy', 'ship_colonists'];
     private const COMMODITIES = ['ore', 'organics', 'goods', 'energy'];
@@ -49,6 +49,8 @@ class Tools
                 ['ship_id' => $int(), 'text' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 280]], ['ship_id', 'text']],
             ['update_notebook', 'Replace your private notebook (max 2000 characters). It survives death and respawn.',
                 ['text' => ['type' => 'string', 'maxLength' => 2000]], ['text']],
+            ['buy_rumour', 'Buy a rumour at the port in this sector (costs a turn and credits). Rumours are usually, not always, true. "tavern" names a region; "informant" the exact sector.',
+                ['tier' => ['type' => 'string', 'enum' => ['tavern', 'informant']]], ['tier']],
             ['end_turn', 'Finish this wake with a one-line summary for the admin log.',
                 ['summary' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 200]], ['summary']],
         ];
@@ -127,6 +129,8 @@ class Tools
                     return $this->err('Message blocked: it repeats your instructions. Say something else, in character.', true);
                 }
                 return $this->api('POST', 'game/messages', $token, ['ship_id' => $a['ship_id'], 'text' => $a['text']]);
+            case 'buy_rumour':
+                return $this->api('POST', 'game/rumours/buy', $token, ['tier' => $a['tier']]);
             case 'update_notebook':
                 return $this->api('POST', 'agent/notebook', $token, ['text' => $a['text']]);
             case 'end_turn':

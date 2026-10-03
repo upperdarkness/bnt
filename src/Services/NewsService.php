@@ -94,7 +94,9 @@ class NewsService
                     $best = $ranks[$p];
                 }
             }
-            $clashes = count($e['participants']) >= 2 ? $this->priorClashes((int)$e['participants'][0], (int)$e['participants'][1], (int)$e['key']) : 0;
+            $clashes = count($e['participants']) >= 2
+                ? $this->priorClashes((int)$e['participants'][0], (int)$e['participants'][1], in_array($e['type'], ['ship_destroyed', 'planet_captured'], true) ? (int)$e['key'] - self::OFFSET['attack'] : 0)
+                : 0;
             $e['score'] = $this->score($e['type'], (float)$e['magnitude'], $best, $clashes, (time() - $e['at']) / 3600);
             $e['clashes'] = $clashes;
         }
@@ -239,7 +241,7 @@ class NewsService
     }
 
     /** Earlier clashes (7 days) between the same two players, or their teams, excluding the event itself. */
-    private function priorClashes(int $a, int $b, int $exceptKey): int
+    private function priorClashes(int $a, int $b, int $exceptLogId): int
     {
         $row = $this->db->fetchOne(
             "SELECT COUNT(*) AS c FROM attack_logs l
@@ -250,7 +252,7 @@ class NewsService
                     OR (x.team <> 0 AND y.team <> 0 AND x.team <> y.team
                         AND ((x.team = (SELECT team FROM ships WHERE ship_id = :a3) AND y.team = (SELECT team FROM ships WHERE ship_id = :b3))
                           OR (x.team = (SELECT team FROM ships WHERE ship_id = :b4) AND y.team = (SELECT team FROM ships WHERE ship_id = :a4)))))",
-            ['self' => $exceptKey - self::OFFSET['attack'], 'a' => $a, 'b' => $b, 'b2' => $b, 'a2' => $a, 'a3' => $a, 'b3' => $b, 'b4' => $b, 'a4' => $a]
+            ['self' => $exceptLogId, 'a' => $a, 'b' => $b, 'b2' => $b, 'a2' => $a, 'a3' => $a, 'b3' => $b, 'b4' => $b, 'a4' => $a]
         );
         return (int)$row['c'];
     }
@@ -417,8 +419,8 @@ class NewsService
         $words = preg_split('/\s+/u', trim(strip_tags((string)$msg['message'])), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $text = implode(' ', array_slice($words, 0, (int)$this->cfg('quote_max_words', 25)));
         $text = str_replace(['{{', '}}', '"', '“', '”'], '', $text);
-        if ($text === '' || $this->filter->hasProfanity($text)) {
-            return null;
+        if ($text === '' || $this->filter->hasProfanity($text) || ContentValidator::hasAccusationTerm($text)) {
+            return null;   // profanity and accusations about other players' conduct never reach print
         }
         $this->db->execute('UPDATE interview_requests SET reply = :r, replied_at = now() WHERE id = :id', ['r' => mb_substr($text, 0, 300), 'id' => (int)$req['id']]);
         return $text;

@@ -23,7 +23,7 @@ class ToolsTest extends TestCase
     {
         $names = array_map(fn($d) => $d['function']['name'], $this->tools()->definitions());
         $expected = ['go_to', 'scan', 'find_trade', 'trade', 'attack_ship', 'deploy_defences', 'land', 'leave',
-            'planet_transfer', 'buy_upgrade', 'send_message', 'update_notebook', 'end_turn'];
+            'planet_transfer', 'buy_upgrade', 'send_message', 'update_notebook', 'buy_rumour', 'end_turn'];
         $this->assertSame($expected, $names);
         foreach ($names as $n) {
             foreach (['igb', 'bank', 'transfer_credits', 'gift', 'team', 'bounty', 'fine', 'password', 'token'] as $forbidden) {

@@ -74,6 +74,7 @@ use BNT\Controllers\AlignmentController;
 use BNT\Controllers\NpcAdminController;
 use BNT\Controllers\ApiContentController;
 use BNT\Controllers\ContentWebController;
+use BNT\Controllers\ContentAdminController;
 
 // Load configuration
 $config = require __DIR__ . '/../config/config.php';
@@ -151,6 +152,7 @@ $apiActionController = new ApiActionController($db, $shipModel, $tradeService, $
 $apiAgentController = new ApiAgentController($shipModel, $observationBuilder, $movementService, $agentService, $apiMiddleware, $config,
     $db, $newsService, $rumourService);
 $apiContentController = new ApiContentController($db, $shipModel, $protectionService, $rumourService, $apiMiddleware, $config);
+$contentAdminController = new ContentAdminController($db, $newsService, $rumourService, $protectionService, $session, $adminAuth, $config);
 $contentWebController = new ContentWebController($shipModel, $protectionService, $rumourService, $session);
 $alignmentController = new AlignmentController($shipModel, $alignmentService, $bountyService, $session, $config);
 $npcAdminController = new NpcAdminController($db, $npcService, $npcSettings, $npcControl, $npcMonitor, $npcEvents,
@@ -268,6 +270,13 @@ $router->post('/admin/universe/regenerate', fn() => $adminController->regenerate
 $router->get('/admin/players/:id/alignment', fn($id) => $npcAdminController->alignmentPage((int)$id));
 $router->post('/admin/players/:id/alignment', fn($id) => $npcAdminController->adjustAlignment((int)$id));
 $router->post('/admin/players/:id/clear-wanted', fn($id) => $npcAdminController->clearWanted((int)$id));
+$router->get('/admin/news', fn() => $contentAdminController->newsQueue());
+$router->post('/admin/news/:id/:action', fn($id, $action) => $contentAdminController->newsAction((int)$id, $action));
+$router->get('/admin/rumours', fn() => $contentAdminController->rumours());
+$router->post('/admin/rumours/lines/:id/:action', fn($id, $action) => $contentAdminController->lineAction((int)$id, $action));
+$router->post('/admin/content/toggle', fn() => $contentAdminController->toggle());
+$router->get('/admin/protection', fn() => $contentAdminController->protection());
+$router->post('/admin/protection/:id/:action', fn($id, $action) => $contentAdminController->protectionAction((int)$id, $action));
 $router->get('/admin/npcs', fn() => $npcAdminController->index());
 $router->get('/admin/npcs/global', fn() => $npcAdminController->global());
 $router->post('/admin/npcs/global', fn() => $npcAdminController->updateGlobal());

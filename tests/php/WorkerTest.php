@@ -113,7 +113,7 @@ class WorkerTest extends DbTestCase
         $this->assertSame('user', $first['messages'][1]['role']);
         $this->assertContains('TURN BUDGET:', $first['messages'][1]['content']);
         $this->assertContains('attacked by [ship 99] name=<<<Vex>>>', $first['messages'][1]['content']);
-        $this->assertSame(13, count($first['tools']));
+        $this->assertSame(14, count($first['tools']));
         $this->assertSame('Bearer ' . self::SECRET_KEY, $reqs[0]['auth']);
         // Later requests carry the growing conversation including tool messages.
         $this->assertSame('tool', end($reqs[2]['body']['messages'])['role']);

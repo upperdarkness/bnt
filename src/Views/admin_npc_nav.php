@@ -19,6 +19,9 @@
     <a href="/admin/universe">Universe</a>
     <a href="/admin/npcs"><strong>NPCs</strong></a>
     <a href="/admin/npcs/global">NPC Controls</a>
+    <a href="/admin/news">News</a>
+    <a href="/admin/rumours">Rumours</a>
+    <a href="/admin/protection">Protection</a>
     <a href="/admin/settings">Settings</a>
     <a href="/admin/logs">Logs</a>
     <a href="/admin/statistics">Statistics</a>

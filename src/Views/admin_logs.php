@@ -35,6 +35,9 @@ ob_start();
     <a href="/admin/teams">Teams</a>
     <a href="/admin/universe">Universe</a>
     <a href="/admin/npcs">NPCs</a>
+    <a href="/admin/news">News</a>
+    <a href="/admin/rumours">Rumours</a>
+    <a href="/admin/protection">Protection</a>
     <a href="/admin/settings">Settings</a>
     <a href="/admin/logs"><strong>Logs</strong></a>
     <a href="/admin/statistics">Statistics</a>

@@ -21,16 +21,18 @@ class OpenRouterClient
      * @param string[] $fallbackModels tried by OpenRouter in order if the primary is unavailable
      * @return array{ok: bool, message?: array, model?: string, input_tokens?: int, output_tokens?: int, cost_usd?: float, error?: string}
      */
-    public function chat(string $model, array $fallbackModels, array $messages, array $tools): array
+    public function chat(string $model, array $fallbackModels, array $messages, array $tools = []): array
     {
         $payload = [
             'model' => $model,
             'messages' => $messages,
-            'tools' => $tools,
-            'tool_choice' => 'auto',
             'usage' => ['include' => true],
             'temperature' => 0.7,
         ];
+        if ($tools) {
+            $payload['tools'] = $tools;
+            $payload['tool_choice'] = 'auto';
+        }
         if ($fallbackModels) {
             $payload['models'] = array_values(array_unique(array_merge([$model], $fallbackModels)));
             $payload['route'] = 'fallback';
