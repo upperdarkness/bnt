@@ -9,7 +9,10 @@ use BNT\Core\ApiResponse;
 use BNT\Models\Ship;
 use BNT\Services\AgentService;
 use BNT\Services\MovementService;
+use BNT\Core\Database;
+use BNT\Services\NewsService;
 use BNT\Services\ObservationBuilder;
+use BNT\Services\RumourService;
 
 /** agent/* endpoints: NPC accounts only. */
 class ApiAgentController extends ApiBaseController
@@ -20,7 +23,10 @@ class ApiAgentController extends ApiBaseController
         private MovementService $movement,
         private AgentService $agent,
         ApiMiddleware $middleware,
-        private array $config
+        private array $config,
+        private ?Database $db = null,
+        private ?NewsService $news = null,
+        private ?RumourService $rumours = null
     ) {
         $this->middleware = $middleware;
     }
@@ -32,6 +38,57 @@ class ApiAgentController extends ApiBaseController
             ApiResponse::forbidden('This endpoint is for NPC accounts only');
         }
         return $ship;
+    }
+
+    /** Press endpoints accept only the press NPC's token. */
+    private function requirePress(): array
+    {
+        $ship = $this->requireNpc();
+        $row = $this->db?->fetchOne("SELECT faction FROM npc_profiles WHERE ship_id = :id", ['id' => (int)$ship['ship_id']]);
+        if (($row['faction'] ?? null) !== 'press') {
+            ApiResponse::forbidden('This endpoint is for the press NPC only');
+        }
+        return $ship;
+    }
+
+    /** GET /agent/news/candidates */
+    public function newsCandidates(): void
+    {
+        $this->requirePress();
+        ApiResponse::success([
+            'candidates' => $this->news->readyCandidates(),
+            'style_guide_version' => (string)($this->config['news']['prompt_version'] ?? 'v1'),
+            'limits' => ['headline_chars' => 80, 'story_words' => 120],
+        ]);
+    }
+
+    /** POST /agent/news/stories  {candidate_id, headline, body} or {candidate_id, fallback: true} */
+    public function newsStory(): void
+    {
+        $this->requirePress();
+        $b = $this->body();
+        $result = $this->news->submitStory((int)($b['candidate_id'] ?? 0), (string)($b['headline'] ?? ''), (string)($b['body'] ?? ''), !empty($b['fallback']));
+        if (!$result['accepted']) {
+            ApiResponse::error('Story rejected: ' . implode('; ', $result['errors'] ?? []), $result['code'] ?? 'STORY_REJECTED', ($result['code'] ?? '') === 'NOT_FOUND' ? 404 : 422, ['errors' => $result['errors'] ?? []]);
+        }
+        ApiResponse::success($result);
+    }
+
+    /** GET /agent/rumours/pool-status */
+    public function rumourPoolStatus(): void
+    {
+        $this->requirePress();
+        ApiResponse::success(['pool' => $this->rumours->poolStatus(), 'batch_size' => (int)($this->config['rumours']['lines_batch_size'] ?? 20),
+            'max_words' => (int)($this->config['rumours']['line_max_words'] ?? 40)]);
+    }
+
+    /** POST /agent/rumours/lines  {lines: [{type, text}]} */
+    public function rumourLines(): void
+    {
+        $this->requirePress();
+        $b = $this->body();
+        $lines = is_array($b['lines'] ?? null) ? $b['lines'] : [];
+        ApiResponse::success($this->rumours->submitLines($lines));
     }
 
     /** GET /agent/observation */

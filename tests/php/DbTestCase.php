@@ -88,7 +88,7 @@ abstract class DbTestCase extends TestCase
     private static function migrations(string $root): array
     {
         $order = ['add_api_tokens', 'add_attack_logs', 'add_planet_economy_news', 'add_port_colonists', 'add_scheduler',
-            'add_ship_types', 'add_skills', 'add_starbases', 'fix_database_setup', 'fix_planet_owner_nullable', 'add_alignment_npcs', 'add_contraband'];
+            'add_ship_types', 'add_skills', 'add_starbases', 'fix_database_setup', 'fix_planet_owner_nullable', 'add_alignment_npcs', 'add_contraband', 'add_protection_news_rumours'];
         $files = [];
         foreach ($order as $m) {
             $f = "$root/database/migrations/$m.sql";
@@ -116,7 +116,7 @@ abstract class DbTestCase extends TestCase
     {
         self::$db->execute('TRUNCATE ships, universe, links, planets, sector_defence, messages, news, attack_logs, bounties, alignment_log,
             npc_events, npc_action_log, npc_alerts, movement_log, ibank_accounts, api_tokens, api_rate_buckets, ship_known_ports,
-            npc_settings, npc_worker_status, teams, scheduler_tasks RESTART IDENTITY CASCADE');
+            npc_settings, npc_worker_status, teams, scheduler_tasks, news_candidates, interview_requests, rumour_seeds, rumour_lines, rumour_purchases, igb_transfers RESTART IDENTITY CASCADE');
         self::$db->execute("TRUNCATE zones RESTART IDENTITY CASCADE");
         self::$db->execute("INSERT INTO zones (zone_id, zone_name, corp_zone, is_federation) VALUES
             (1, 'Neutral Zone', FALSE, FALSE), (2, 'Federation Space', TRUE, TRUE), (3, 'Free Trade Zone', FALSE, FALSE), (4, 'War Zone', FALSE, FALSE)");
@@ -154,7 +154,8 @@ abstract class DbTestCase extends TestCase
         $n++;
         $id = self::$svc['shipModel']->register("p{$n}_" . bin2hex(random_bytes(3)) . '@example.com', 'password123', $name, self::$config['game'], $over['ship_type'] ?? 'balanced');
         unset($over['ship_type']);
-        $over += ['sector' => 5];
+        // Test players are veterans unless a test asks for protection explicitly.
+        $over += ['sector' => 5, 'protection_state' => 'none'];
         $sets = [];
         $params = ['id' => $id];
         foreach ($over as $k => $v) {

@@ -42,6 +42,8 @@ class Ranking
                 s.alignment,
                 s.wanted_until,
                 s.is_npc,
+                s.protection_state,
+                s.respawn_shield_until,
                 t.team_name,
                 CASE
                     WHEN s.turns_used < 150 THEN 0

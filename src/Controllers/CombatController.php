@@ -127,7 +127,7 @@ class CombatController
             exit;
         }
 
-        $result = $this->combatService->attackShip($ship, $targetId);
+        $result = $this->combatService->attackShip($ship, $targetId, !empty($_POST['confirm_protection']));
         $this->session->set($result['flash'], $result['text']);
         header('Location: /combat');
         exit;
@@ -147,7 +147,7 @@ class CombatController
             exit;
         }
 
-        $result = $this->combatService->attackPlanet($ship, $planetId);
+        $result = $this->combatService->attackPlanet($ship, $planetId, !empty($_POST['confirm_protection']));
         $this->session->set($result['flash'], $result['text']);
         header('Location: /combat');
         exit;
@@ -170,7 +170,8 @@ class CombatController
         $result = $this->combatService->deployDefence(
             $ship,
             (string)($_POST['defense_type'] ?? ''),
-            max(0, (int)($_POST['quantity'] ?? 0))
+            max(0, (int)($_POST['quantity'] ?? 0)),
+            !empty($_POST['confirm_protection'])
         );
         $this->session->set($result['flash'], $result['text']);
         header('Location: /combat');

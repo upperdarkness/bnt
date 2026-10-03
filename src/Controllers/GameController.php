@@ -25,7 +25,9 @@ class GameController
         private array $config,
         private ?MovementService $movement = null,
         private ?AlignmentService $alignment = null,
-        private ?TradeService $trade = null
+        private ?TradeService $trade = null,
+        private ?\BNT\Services\ProtectionService $protection = null,
+        private ?\BNT\Services\RumourService $rumours = null
     ) {}
 
     private function requireAuth(): ?array
@@ -50,6 +52,9 @@ class GameController
     public function main(): void
     {
         $ship = $this->requireAuth();
+        if (($ship['protection_state'] ?? 'none') !== 'none') {
+            $this->shipModel->markActive((int)$ship['ship_id']);
+        }
 
         // If on planet, leave it automatically when accessing main
         if ($ship['on_planet']) {
@@ -299,7 +304,10 @@ class GameController
         $maxFighters = $this->calculateFighters($ship['computer']);
         $maxTorps = $this->calculateTorps($ship['torp_launchers']);
 
-        $data = compact('ship', 'planets', 'maxHolds', 'maxEnergy', 'maxFighters', 'maxTorps', 'score');
+        $protectionProgress = $this->protection && $this->protection->enabled() ? $this->protection->progress($ship) : null;
+        $rumourLog = $this->rumours && $this->rumours->enabled() ? $this->rumours->log((int)$ship['ship_id'], 20) : [];
+        $session = $this->session;
+        $data = compact('ship', 'planets', 'maxHolds', 'maxEnergy', 'maxFighters', 'maxTorps', 'score', 'protectionProgress', 'rumourLog', 'session');
 
         ob_start();
         include __DIR__ . '/../Views/status.php';

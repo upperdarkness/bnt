@@ -31,7 +31,8 @@ class NpcScriptedBrain
         private NpcService $npcs,
         private PoliceService $police,
         private array $config,
-        private ?ContrabandService $contraband = null
+        private ?ContrabandService $contraband = null,
+        private ?ProtectionRules $protection = null
     ) {}
 
     /**
@@ -94,6 +95,8 @@ class NpcScriptedBrain
              WHERE s.sector = :sector AND s.ship_destroyed = FALSE AND s.on_planet = FALSE AND s.ship_id != :me',
             ['sector' => $sector, 'me' => $excludeId]
         );
+        // Protected ships are invisible to NPCs (no targeting, no fleeing from them).
+        $rows = array_values(array_filter($rows, fn($r) => !$this->protection?->isProtected($r)));
         foreach ($rows as &$r) {
             $r['wanted'] = $this->alignment->isWanted($r);
             $r['rating'] = $this->rating->rate($r);
@@ -507,6 +510,9 @@ class NpcScriptedBrain
         $best = null;
         $bestRating = PHP_INT_MAX;
         foreach ($rows as $r) {
+            if ($this->protection?->isProtected($r)) {
+                continue;
+            }
             if (($r['faction'] ?? null) === 'xenobe') {
                 continue;
             }

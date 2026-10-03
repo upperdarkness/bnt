@@ -89,6 +89,8 @@ return [
         'enabled' => filter_var(getenv('ALIGNMENT_ENABLED') ?: 'true', FILTER_VALIDATE_BOOLEAN),
         'min' => -10000,
         'max' => 10000,
+        // Attacking a ship whose score is under this fraction of the attacker's doubles the attacker's alignment penalties.
+        'mismatch_ratio' => 0.25,
         // Lower bound of each tier (Pirate is everything at or below outlaw_min - 1).
         'tiers' => ['paragon' => 1000, 'lawful' => 100, 'neutral' => -99, 'outlaw' => -999],
         'starbase_paragon_discount_pct' => 5,
@@ -174,6 +176,10 @@ return [
             'xenobe' => ['label' => 'Xenobe Raiders', 'tag' => 'Xenobe', 'archetype' => 'raider', 'alignment' => -3000, 'count_per_1000' => 6,
                 'home_zone' => 4, 'turn_multiplier' => 1.0,
                 'loadout' => ['hull' => 5, 'engines' => 5, 'beams' => 6, 'shields' => 5, 'armor' => 5, 'computer' => 4, 'ship_fighters' => 500, 'torps' => 60, 'credits' => 30000, 'ship_type' => 'warship']],
+            // The Galactic Courier: docked at the Sector 1 starbase, never populated automatically (count 0).
+            'press' => ['label' => 'Galactic Courier', 'tag' => 'Press', 'archetype' => 'press', 'alignment' => 500, 'count_per_1000' => 0,
+                'home_zone' => 2, 'turn_multiplier' => 1.0,
+                'loadout' => ['hull' => 1, 'engines' => 1, 'beams' => 0, 'shields' => 1, 'armor' => 1, 'computer' => 1, 'ship_fighters' => 0, 'torps' => 0, 'credits' => 10000, 'ship_type' => 'balanced']],
             'free' => ['label' => 'Free Captains', 'tag' => 'Free', 'archetype' => 'free_captain', 'alignment' => 0, 'count_per_1000' => 4,
                 'home_zone' => 3, 'turn_multiplier' => 1.0,
                 'loadout' => ['hull' => 4, 'engines' => 4, 'beams' => 4, 'shields' => 4, 'armor' => 4, 'computer' => 3, 'ship_fighters' => 200, 'torps' => 20, 'credits' => 50000, 'ship_type' => 'balanced', 'skill_trading' => 10]],
@@ -189,6 +195,70 @@ return [
         'rate_limit_player_per_min' => 60,
         'rate_limit_npc_per_min' => 30,
         'player_message_limit_per_hour' => 30,
+    ],
+
+    // Newbie protection: a starting shield for new ships (existing ships are veterans).
+    'protection' => [
+        'enabled' => filter_var(getenv('PROTECTION_ENABLED') ?: 'true', FILTER_VALIDATE_BOOLEAN),
+        'score_fraction' => 0.25,        // exit at this fraction of the active players' score...
+        'score_percentile' => 50,        // ...taken at this percentile (50 = median); raise/lower it on skewed servers
+        'score_floor' => 10000,          // never less than this
+        'active_days' => 14,             // days with at least one login
+        'max_planets' => 3,              // planets covered by protection
+        'grace_hours' => 12,
+        'grace_protects' => false,       // false: the ship is attackable during grace (the warning period)
+        'respawn_shield_hours' => 24,
+        'respawn_shield_cooldown_days' => 7,
+        'transfer_cap' => 50000,         // credits per real day between protected and non-protected accounts
+        'max_team_protected' => 2,
+        'active_player_days' => 7,       // "active player" for the median: logged in within this many days
+    ],
+
+    // NPC journalist (Galactic News stories written by an LLM around facts the game supplies)
+    'news' => [
+        'journalist_enabled' => filter_var(getenv('NEWS_JOURNALIST_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN),
+        'review_mode' => filter_var(getenv('NEWS_REVIEW_MODE') ?: 'true', FILTER_VALIDATE_BOOLEAN),
+        'min_score' => 20,
+        'interview_score' => 50,
+        'max_stories_per_day' => 6,
+        'interview_window_hours' => 2,
+        'interview_max_participants' => 2,
+        'quote_max_words' => 25,
+        'reporter_name' => 'Talia Venn',
+        'reporter_title' => 'Galactic Courier',
+        'recency_half_life_hours' => 12,
+        'lookback_hours' => 48,
+        'include_npc_only' => false,     // cover events with no human participant?
+        'model' => '',                   // OpenRouter model for stories; blank = npc.default_model
+        'prompt_version' => 'v1',
+        'base_scores' => ['ship_destroyed' => 10, 'planet_captured' => 8, 'bounty_claimed' => 7, 'wanted_set' => 6, 'rank_top10' => 5],
+    ],
+
+    // Generated rumours bought at ports
+    'rumours' => [
+        'enabled' => filter_var(getenv('RUMOURS_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN),
+        'truth_split' => ['true' => 60, 'stale' => 25, 'false' => 15],
+        'informant_bonus' => 15,         // percentage points moved from false/stale to true for the paid informant
+        'starbase_true_pct' => 75,
+        'raider_zone_true_pct' => 45,
+        'raider_zone_price_factor' => 0.5,
+        'raider_zone_id' => 4,
+        'price_tavern' => 1000,
+        'price_informant' => 10000,
+        'daily_limit_per_port' => 3,
+        'expiry_hours_moving' => 6,      // fat cargo and Wanted sightings
+        'expiry_hours_other' => 24,
+        'tavern_region_size' => 10,
+        'fat_cargo_value' => 500000,
+        'soft_planet_fighter_capacity' => 1000,
+        'price_spike_ratio' => 2.0,
+        'raider_nest_min' => 3,
+        'max_seeds_per_type' => 6,
+        'pool_min' => 6,                 // approved flavour lines wanted per type
+        'require_line_approval' => true, // new LLM lines wait for an admin
+        'lines_batch_size' => 20,
+        'line_max_words' => 40,
+        'model' => '',
     ],
 
     // Contraband ("Void Relics"): rare, very valuable, illegal. Off until enabled.

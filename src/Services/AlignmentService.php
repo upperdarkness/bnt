@@ -19,6 +19,15 @@ class AlignmentService
         private array $config
     ) {}
 
+    private ?ProtectionRules $protection = null;
+
+    /** Is this ship row under newbie protection? (rows need protection_state / respawn_shield_until) */
+    public function isProtectedRow(array $row): bool
+    {
+        $this->protection ??= new ProtectionRules($this->config);
+        return $this->protection->isProtected($row);
+    }
+
     public function rules(): AlignmentRules
     {
         return $this->rules;
@@ -187,7 +196,9 @@ class AlignmentService
     {
         $alignment = (int)($row['alignment'] ?? 0);
         $out = $row;
-        unset($out['alignment'], $out['wanted_until'], $out['is_npc'], $out['faction']);
+        $protected = $this->isProtectedRow($row);
+        unset($out['alignment'], $out['wanted_until'], $out['is_npc'], $out['faction'], $out['protection_state'], $out['respawn_shield_until']);
+        $out['protected'] = $protected;
         $out['alignment_tier'] = $this->enabled() ? $this->rules->label($alignment) : null;
         $out['wanted'] = $this->isWanted($row);
         if (!empty($row['is_npc'])) {
@@ -203,7 +214,7 @@ class AlignmentService
     public function profile(int $shipId): ?array
     {
         return $this->db->fetchOne(
-            'SELECT s.ship_id, s.alignment, s.is_npc, s.team, s.wanted_until, s.character_name, p.faction
+            'SELECT s.ship_id, s.alignment, s.is_npc, s.team, s.wanted_until, s.character_name, s.score, p.faction
              FROM ships s LEFT JOIN npc_profiles p ON p.ship_id = s.ship_id WHERE s.ship_id = :id',
             ['id' => $shipId]
         );
@@ -220,11 +231,24 @@ class AlignmentService
         }
         $attackerId = (int)$attacker['ship_id'];
         $victimId = (int)$victimBefore['ship_id'];
+        // Bullying a much weaker player doubles every alignment penalty for the attack.
+        $this->protection ??= new ProtectionRules($this->config);
+        $mismatch = $this->protection->isMismatch((int)($attacker['score'] ?? 0), (int)($victimBefore['score'] ?? 0));
         foreach ($this->rules->attackDeltas($attacker, $victimBefore, $destroyed, $inFedSpace) as [$delta, $reason]) {
-            $this->apply($attackerId, $delta, $reason, $victimId);
+            if ($mismatch && $delta < 0) {
+                $this->apply($attackerId, $delta * 2, $reason . '_mismatch', $victimId);
+            } else {
+                $this->apply($attackerId, $delta, $reason, $victimId);
+            }
         }
         if ($fedspaceOffence) {
-            $this->fedspaceOffence($attacker, $victimId);
+            $this->fedspaceOffence($attacker, $victimId, $mismatch ? 2 : 1);
+        }
+        if ($mismatch && $destroyed && $this->enabled()) {
+            $this->db->execute(
+                "INSERT INTO news (headline, newstext, user_id, news_type) VALUES (:h, :t, NULL, 'mismatch')",
+                ['h' => 'Bully in the lanes', 't' => ($attacker['character_name'] ?? 'A captain') . ' destroyed the far weaker ship of ' . ($victimBefore['character_name'] ?? 'a rival') . '. The Federation notes the mismatch.']
+            );
         }
     }
 
@@ -246,12 +270,12 @@ class AlignmentService
     }
 
     /** Penalty and Wanted status for a hostile act inside FedSpace by an Outlaw/Pirate. */
-    public function fedspaceOffence(array $attacker, ?int $relatedShipId = null): void
+    public function fedspaceOffence(array $attacker, ?int $relatedShipId = null, int $multiplier = 1): void
     {
         if (!$this->enabled()) {
             return;
         }
-        $this->apply((int)$attacker['ship_id'], $this->rules->delta('fedspace_hostile'), 'fedspace_hostile_action', $relatedShipId);
+        $this->apply((int)$attacker['ship_id'], $this->rules->delta('fedspace_hostile') * $multiplier, 'fedspace_hostile_action', $relatedShipId);
         $this->setWanted((int)$attacker['ship_id'], 'hostile action in FedSpace', (int)($attacker['sector'] ?? 0) ?: null);
     }
 

@@ -8,7 +8,24 @@ use BNT\Core\Database;
 
 class Team
 {
+    private ?\BNT\Services\ProtectionService $protection = null;
+
     public function __construct(private Database $db) {}
+
+    public function setProtection(\BNT\Services\ProtectionService $protection): void
+    {
+        $this->protection = $protection;
+    }
+
+    /** A team may hold at most N protected members (newbie protection). */
+    public function canJoin(int $shipId, int $teamId): bool
+    {
+        if (!$this->protection) {
+            return true;
+        }
+        $ship = $this->db->fetchOne('SELECT ship_id, protection_state, respawn_shield_until, is_npc FROM ships WHERE ship_id = :id', ['id' => $shipId]);
+        return !$ship || $this->protection->teamAllowsProtected($teamId, $ship);
+    }
 
     /**
      * Get database instance
@@ -184,6 +201,9 @@ class Team
      */
     public function addMember(int $shipId, int $teamId): bool
     {
+        if (!$this->canJoin($shipId, $teamId)) {
+            return false;
+        }
         return $this->db->execute(
             'UPDATE ships SET team = :team WHERE ship_id = :ship',
             ['team' => $teamId, 'ship' => $shipId]
@@ -307,8 +327,10 @@ class Team
             return false;
         }
 
-        // Add to team
-        $this->addMember($shipId, (int)$invitation['team_id']);
+        // Add to team (refused when the team already has its quota of protected members)
+        if (!$this->addMember($shipId, (int)$invitation['team_id'])) {
+            return false;
+        }
 
         // Delete invitation
         $this->db->execute(

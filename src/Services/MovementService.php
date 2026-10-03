@@ -27,7 +27,8 @@ class MovementService
         private NpcEvents $events,
         private SectorGraph $graph,
         private array $config,
-        private ?ContrabandService $contraband = null
+        private ?ContrabandService $contraband = null,
+        private ?ProtectionService $protection = null
     ) {}
 
     /**
@@ -45,6 +46,12 @@ class MovementService
         }
         if (!$this->universe->isLinked((int)$ship['sector'], $destination)) {
             return ['success' => false, 'error' => 'Sectors are not linked', 'code' => 'SECTORS_NOT_LINKED'];
+        }
+
+        // A protected ship is turned back from sectors holding hostile defences (no scouting through minefields).
+        if ($this->protection && $this->protection->isProtected($ship) && $this->protection->hostileDefencesIn($destination, $ship)) {
+            return ['success' => false, 'code' => 'DEFENCES_BLOCK_PROTECTED',
+                'error' => 'Hostile defences in that sector block your protected ship. You turn back.'];
         }
 
         $this->shipModel->useTurns($shipId, $turnCost);

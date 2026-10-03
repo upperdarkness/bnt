@@ -22,7 +22,7 @@ class WebSmokeTest extends DbTestCase
                 'DB_HOST' => self::$config['database']['host'], 'DB_PORT' => (string)self::$config['database']['port'],
                 'DB_NAME' => self::$dbName, 'DB_USER' => self::$config['database']['username'], 'DB_PASS' => 'x',
                 'NPC_GRAPH_CACHE' => sys_get_temp_dir() . '/bnt_web_graph_' . self::$dbName . '.json',
-                'display_errors' => '1', 'CONTRABAND_ENABLED' => 'true',
+                'display_errors' => '1', 'CONTRABAND_ENABLED' => 'true', 'RUMOURS_ENABLED' => 'true', 'NEWS_JOURNALIST_ENABLED' => 'true',
             ], $root);
         } catch (\Throwable $e) {
             self::$skip = $e->getMessage();
@@ -208,6 +208,40 @@ class WebSmokeTest extends DbTestCase
         $this->assertFalse((bool)$this->db()->fetchOne('SELECT is_blackmarket AS b FROM universe WHERE sector_id = 9')['b']);
         $this->web('POST', '/admin/universe/sector/9/update', $form(['is_blackmarket' => '1', 'zone_id' => '2']));
         $this->assertFalse((bool)$this->db()->fetchOne('SELECT is_blackmarket AS b FROM universe WHERE sector_id = 9')['b']);
+    }
+
+    public function testProtectionRumourAndJournalistPages(): void
+    {
+        $me = $this->makePlayer('Rookie', ['sector' => 5, 'protection_state' => 'protected', 'credits' => 50000, 'turns' => 100]);
+        $this->db()->execute("UPDATE universe SET port_type = 'ore' WHERE sector_id = 5");
+        $this->db()->getConnection()->prepare("INSERT INTO rumour_seeds (type, shown_facts, true_facts, truth_state, expires_at) VALUES ('rich_world', CAST(:s AS JSONB), CAST(:s AS JSONB), 'true', now() + interval '5 hours')")
+            ->execute(['s' => json_encode(['sector' => 12])]);
+        $press = $this->svc('pressService')->reporterId();
+        $this->db()->execute("INSERT INTO news (headline, newstext, news_type, source, status, user_id) VALUES ('Courier headline', 'Talia reports.', 'journalist', 'journalist', 'published', :p)", ['p' => $press]);
+        $this->login($me);
+
+        $status = $this->web('GET', '/status');
+        $this->assertPage($status, 'status', ['Protected:', 'Give up protection', 'Courier interviews']);
+        $port = $this->web('GET', '/port');
+        $this->assertPage($port, 'port', ['Buy a rumour', 'Tavern talk', 'Paid informant']);
+        $buy = $this->web('POST', '/rumours/buy', ['csrf_token' => $this->csrf('/port'), 'tier' => 'informant']);
+        $this->assertSame(1, (int)$this->db()->fetchOne('SELECT COUNT(*) AS c FROM rumour_purchases WHERE ship_id = :i', ['i' => $me])['c'], 'bought via the web form');
+        $this->assertPage($this->web('GET', '/status'), 'status with rumour log', ['sector 12']);
+        $news = $this->web('GET', '/news?source=journalist');
+        $this->assertPage($news, 'news', ['Courier headline', 'Talia Venn']);
+
+        $opt = $this->web('POST', '/protection/opt-out', ['csrf_token' => $this->csrf('/status')]);
+        $this->assertSame('none', $this->ship($me)['protection_state']);
+        $this->assertNotContains('Give up protection', $this->web('GET', '/status')['body']);
+
+        $this->web('POST', '/admin/login', ['csrf_token' => $this->csrf('/admin/login'), 'password' => 'secret']);
+        $this->assertPage($this->web('GET', '/admin/news'), 'admin news');
+        $this->assertPage($this->web('GET', '/admin/rumours'), 'admin rumours');
+        $this->assertPage($this->web('GET', '/admin/protection'), 'admin protection');
+        $r = $this->web('POST', "/admin/protection/$me/grant", ['csrf_token' => $this->csrf('/admin/protection'), 'reason' => 'support ticket']);
+        $this->assertSame('protected', $this->ship($me)['protection_state'], 'admin can re-grant protection');
+        $this->web('POST', "/admin/protection/$me/end", ['csrf_token' => $this->csrf('/admin/protection'), 'reason' => 'abuse']);
+        $this->assertSame('none', $this->ship($me)['protection_state']);
     }
 
     public function testAdminNpcAndAlignmentPages(): void

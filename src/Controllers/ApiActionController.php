@@ -55,7 +55,7 @@ class ApiActionController extends ApiBaseController
     public function attackShip(int $targetId): void
     {
         $ship = $this->requireAuth();
-        $result = $this->combat->attackShip($ship, $targetId);
+        $result = $this->combat->attackShip($ship, $targetId, $this->flag('confirm_end_protection'));
         $this->respond($result, null, $result['success'] ? ['ship' => $this->cleanShip($this->shipModel->find((int)$ship['ship_id']))] : []);
     }
 
@@ -63,7 +63,7 @@ class ApiActionController extends ApiBaseController
     public function attackPlanet(int $planetId): void
     {
         $ship = $this->requireAuth();
-        $result = $this->combat->attackPlanet($ship, $planetId);
+        $result = $this->combat->attackPlanet($ship, $planetId, $this->flag('confirm_end_protection'));
         $this->respond($result, null, $result['success'] ? ['ship' => $this->cleanShip($this->shipModel->find((int)$ship['ship_id']))] : []);
     }
 
@@ -86,10 +86,11 @@ class ApiActionController extends ApiBaseController
             ApiResponse::validationError(['fighters' => 'Provide fighters and/or mines to deploy']);
         }
         $texts = [];
+        $confirm = !empty($b['confirm_end_protection']);
         $last = ['success' => true];
         foreach ($jobs as [$type, $qty]) {
             $ship = $this->shipModel->find((int)$ship['ship_id']);
-            $last = $this->combat->deployDefence($ship, $type, $qty);
+            $last = $this->combat->deployDefence($ship, $type, $qty, $confirm);
             if (!$last['success']) {
                 $this->respond($last);
             }

@@ -16,7 +16,8 @@ class PlanetController
         private Universe $universeModel,
         private Planet $planetModel,
         private Session $session,
-        private array $config
+        private array $config,
+        private ?\BNT\Services\ProtectionService $protection = null
     ) {}
 
     private function requireAuth(): ?array
@@ -108,6 +109,13 @@ class PlanetController
         // Check if player is in same sector
         if ($planet['sector_id'] != $ship['sector']) {
             $this->session->set('error', 'You must be in the same sector');
+            header('Location: /planet/' . $planetId);
+            exit;
+        }
+
+        // Protected ships cannot claim a planet in a sector where another player has defences
+        if ($this->protection && $this->protection->isProtected($ship) && $this->protection->hostileDefencesIn((int)$ship['sector'], $ship)) {
+            $this->session->set('error', 'A protected ship cannot claim a planet in a sector where another player has defences');
             header('Location: /planet/' . $planetId);
             exit;
         }

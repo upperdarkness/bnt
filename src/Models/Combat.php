@@ -7,6 +7,7 @@ namespace BNT\Models;
 use BNT\Core\Database;
 use BNT\Services\AlignmentRules;
 use BNT\Services\BountyService;
+use BNT\Services\ProtectionRules;
 use BNT\Services\SectorRules;
 
 class Combat
@@ -20,7 +21,8 @@ class Combat
         private Database $db,
         private ?AlignmentRules $rules = null,
         private ?SectorRules $sectors = null,
-        private ?BountyService $bounties = null
+        private ?BountyService $bounties = null,
+        private ?ProtectionRules $protection = null
     ) {}
 
     /**
@@ -301,7 +303,10 @@ class Combat
         }
 
         // Mines that can act on this ship: not its own or its team's, and subject to FedSpace rules
-        $victim = $this->db->fetchOne('SELECT alignment, team FROM ships WHERE ship_id = :id', ['id' => $shipId]);
+        $victim = $this->db->fetchOne('SELECT alignment, team, protection_state, respawn_shield_until, is_npc FROM ships WHERE ship_id = :id', ['id' => $shipId]);
+        if ($victim && $this->protection?->isProtected($victim)) {
+            return $result;   // protected ships are never damaged by defences
+        }
         $victimAlign = (int)($victim['alignment'] ?? 0);
         $victimTeam = (int)($victim['team'] ?? 0);
         $rows = $this->db->fetchAll(
@@ -399,6 +404,10 @@ class Combat
 
         if (empty($defenses)) {
             return $result;
+        }
+
+        if ($this->protection?->isProtected($ship)) {
+            return $result;   // protected ships are never damaged by defences
         }
 
         $victimAlign = (int)($ship['alignment'] ?? 0);

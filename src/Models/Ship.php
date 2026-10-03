@@ -33,6 +33,9 @@ class Ship extends Model
         $this->update((int)$ship['ship_id'], [
             'last_login' => date('Y-m-d H:i:s')
         ]);
+        if (($ship['protection_state'] ?? 'none') !== 'none') {
+            $this->markActive((int)$ship['ship_id']);
+        }
 
         return $ship;
     }
@@ -81,7 +84,7 @@ class Ship extends Model
     public function getShipsInSector(int $sectorId, ?int $excludeShipId = null): array
     {
         $sql = "SELECT s.ship_id, s.character_name, s.score, s.team, s.alignment, s.wanted_until, s.is_npc,
-                       p.faction
+                       s.protection_state, s.respawn_shield_until, p.faction
                 FROM {$this->table} s
                 LEFT JOIN npc_profiles p ON p.ship_id = s.ship_id
                 WHERE s.sector = :sector
@@ -96,6 +99,38 @@ class Ship extends Model
         }
 
         return $this->db->fetchAll($sql, $params);
+    }
+
+    /** Count today as an active day for a protected ship (one cheap guarded UPDATE). */
+    public function markActive(int $shipId): void
+    {
+        $this->db->execute(
+            "UPDATE {$this->table} SET active_days = active_days + 1, last_active_date = CURRENT_DATE
+             WHERE ship_id = :id AND last_active_date IS DISTINCT FROM CURRENT_DATE",
+            ['id' => $shipId]
+        );
+    }
+
+    /** Respawn shield for a ship rebuilt from an escape pod; at most once per cooldown. */
+    public function grantRespawnShield(int $shipId, int $hours, int $cooldownDays): bool
+    {
+        return $this->db->execute(
+            "UPDATE {$this->table} SET respawn_shield_until = now() + make_interval(hours => :h), last_respawn_shield_at = now()
+             WHERE ship_id = :id AND is_npc = FALSE
+               AND (last_respawn_shield_at IS NULL OR last_respawn_shield_at < now() - make_interval(days => :d))",
+            ['h' => $hours, 'd' => $cooldownDays, 'id' => $shipId]
+        );
+    }
+
+    /** Remember where an account signed up from (multi-account signals for admins). Never blocks registration. */
+    public function recordSignup(int $shipId, ?string $ip, ?string $device): void
+    {
+        try {
+            $this->db->execute('UPDATE ships SET signup_ip = :ip, signup_device = :dev WHERE ship_id = :id',
+                ['ip' => $ip, 'dev' => $device !== null ? mb_substr($device, 0, 100) : null, 'id' => $shipId]);
+        } catch (\Throwable) {
+            // protection migration not applied yet
+        }
     }
 
     public function addTurns(int $shipId, int $turns): bool

@@ -28,6 +28,14 @@ class Worker
         private $log
     ) {}
 
+    private ?ContentWorker $content = null;
+
+    /** Attach the journalist / rumour-line pipeline; it runs whenever no NPC is due to wake. */
+    public function setContentWorker(ContentWorker $content): void
+    {
+        $this->content = $content;
+    }
+
     public function stop(): void
     {
         $this->stop = true;
@@ -74,6 +82,7 @@ class Worker
             $this->wake($npc, $reason);
             return true;
         }
+        $this->content?->tick();
         return false;
     }
 

@@ -10,10 +10,18 @@ class News
 {
     public function __construct(private Database $db) {}
 
-    public function recent(int $limit = 50): array
+    /** Published items, newest first. $source filters to 'journalist' or 'system'. */
+    public function recent(int $limit = 50, ?string $source = null): array
     {
         $limit = max(1, min($limit, 100));
-        return $this->db->fetchAll("SELECT headline, newstext, date, news_type FROM news ORDER BY date DESC, news_id DESC LIMIT $limit");
+        $source = in_array($source, ['journalist', 'system'], true) ? $source : null;
+        return $this->db->fetchAll(
+            "SELECT n.headline, n.newstext, n.date, n.news_type, n.source, s.character_name AS byline
+             FROM news n LEFT JOIN ships s ON s.ship_id = n.user_id AND n.source = 'journalist'
+             WHERE n.status = 'published'" . ($source ? ' AND n.source = :src' : '') . "
+             ORDER BY n.date DESC, n.news_id DESC LIMIT $limit",
+            $source ? ['src' => $source] : []
+        );
     }
 
     public function publishCombatEvents(): string
@@ -50,9 +58,10 @@ class News
                 $published += $insert->rowCount();
                 $this->db->execute('UPDATE attack_logs SET news_published = TRUE WHERE log_id = :id', ['id' => (int)$event['log_id']]);
             }
-            $this->db->execute('DELETE FROM news WHERE news_id IN (
-                SELECT news_id FROM news ORDER BY date DESC, news_id DESC OFFSET 100
-            )');
+            // Retention only trims system items; journalist stories are managed in the admin news queue.
+            $this->db->execute("DELETE FROM news WHERE news_id IN (
+                SELECT news_id FROM news WHERE source = 'system' ORDER BY date DESC, news_id DESC OFFSET 100
+            )");
             if ($ownsTransaction) {
                 $pdo->commit();
             }
