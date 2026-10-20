@@ -226,3 +226,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   starbases, port colonists), so new installs need no migrations. `SchemaTest` fails if a migration adds anything the schema lacks;
   all database tests now build from the schema alone.
 - **LLM observation** - adds a `KNOWN PORTS` line (up to 8 discovered ports, neighbours first) listing what each sells and buys, so captains stop trying trades a port refuses.
+- **Fixed: no port bought energy** - ore, organics and goods ports now buy energy (every port buys everything except its own product, as the code comments always said). `PortRulesTest` pins the rule.
