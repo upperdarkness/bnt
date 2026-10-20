@@ -14,6 +14,8 @@ use BNT\Models\Ship;
  */
 class ObservationBuilder
 {
+    private const KNOWN_PORTS_SHOWN = 8;
+
     public function __construct(
         private Database $db,
         private Ship $shipModel,
@@ -76,6 +78,10 @@ class ObservationBuilder
         $lines[] = sprintf('LOCATION: Sector %d (zone: %s)%s | Port: %s', $sectorId, UntrustedText::sanitize((string)$zone, 40),
             $flags ? ' [' . implode(', ', $flags) . ']' : '', $port);
         $lines[] = 'LINKS: ' . ($links ? implode(', ', $links) : 'none');
+        $known = $this->knownPorts((int)$ship['ship_id'], $sectorId);
+        if ($known) {
+            $lines[] = 'KNOWN PORTS (what each sells / buys; use find_trade for prices): ' . implode(' ; ', $known);
+        }
 
         // Ships here
         $here = $this->db->fetchAll(
@@ -143,6 +149,29 @@ class ObservationBuilder
         return ['text' => implode("\n", $lines), 'events' => array_map(static fn($e) => [
             'id' => (int)$e['id'], 'kind' => $e['kind'],
         ], $events), 'last_event_id' => $lastId];
+    }
+
+    /**
+     * Ports this ship has already visited or scanned (the same fog the NPC trade finder uses), neighbours first,
+     * with the commodities each one sells and buys so a captain never tries a trade the port refuses.
+     *
+     * @return string[]
+     */
+    private function knownPorts(int $shipId, int $sectorId): array
+    {
+        $rows = $this->db->fetchAll(
+            "SELECT k.sector_id, u.port_type FROM ship_known_ports k JOIN universe u ON u.sector_id = k.sector_id
+             WHERE k.ship_id = :ship AND k.sector_id <> :here AND u.port_type <> 'none'
+             ORDER BY (EXISTS (SELECT 1 FROM links l WHERE l.link_start = :here2 AND l.link_dest = k.sector_id)) DESC, k.seen_at DESC
+             LIMIT " . self::KNOWN_PORTS_SHOWN,
+            ['ship' => $shipId, 'here' => $sectorId, 'here2' => $sectorId]
+        );
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = sprintf('[sector %d] %s sells %s, buys %s', (int)$r['sector_id'], strtoupper($r['port_type']),
+                implode('+', TradeService::portSells($r['port_type'])), implode('+', TradeService::portBuys($r['port_type'])));
+        }
+        return $out;
     }
 
     private function describeEvent(array $e): string

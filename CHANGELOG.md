@@ -225,3 +225,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Complete schema** - `database/schema.sql` now contains everything the migrations add (API tokens, ship types, skills,
   starbases, port colonists), so new installs need no migrations. `SchemaTest` fails if a migration adds anything the schema lacks;
   all database tests now build from the schema alone.
+- **LLM observation** - adds a `KNOWN PORTS` line (up to 8 discovered ports, neighbours first) listing what each sells and buys, so captains stop trying trades a port refuses.
