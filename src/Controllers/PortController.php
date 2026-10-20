@@ -263,9 +263,9 @@ class PortController
     private function getPortBuyCommodities(string $portType): array
     {
         return match ($portType) {
-            'ore' => ['organics', 'goods'],
-            'organics' => ['ore', 'goods'],
-            'goods' => ['ore', 'organics'],
+            'ore' => ['organics', 'goods', 'energy'],
+            'organics' => ['ore', 'goods', 'energy'],
+            'goods' => ['ore', 'organics', 'energy'],
             'energy' => ['ore', 'organics', 'goods'], // Energy ports can buy all others
             default => [] // 'none' or unknown types
         };

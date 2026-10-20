@@ -1,3 +1,9 @@
+Each port type sells its own product and buys the other three, so energy can be sold at ore, organics and goods ports:
+- Ore ports: sell ore; buy organics, goods, energy
+- Organics ports: sell organics; buy ore, goods, energy
+- Goods ports: sell goods; buy ore, organics, energy
+- Energy ports: sell energy; buy ore, organics, goods
+
 # BlackNova Traders - Modern PHP Edition
 
 A complete rewrite of BlackNova Traders using modern PHP 8.1+, PostgreSQL, and minimal dependencies.

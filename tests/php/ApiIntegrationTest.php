@@ -241,9 +241,9 @@ class ApiIntegrationTest extends DbTestCase
         $obs = $this->http('GET', '/api/v1/agent/observation', $npc)['json']['data']['observation'];
         $line = current(array_filter(explode("\n", $obs), fn($l) => str_starts_with($l, 'KNOWN PORTS')));
         $this->assertTrue($line !== false, 'known ports line present');
-        $this->assertContains('[sector 4] ORE sells ore, buys organics+goods', $line);
+        $this->assertContains('[sector 4] ORE sells ore, buys organics+goods+energy', $line);
         $this->assertContains('[sector 6] ENERGY sells energy, buys ore+organics+goods', $line);
-        $this->assertContains('[sector 9] ORGANICS sells organics, buys ore+goods', $line);
+        $this->assertContains('[sector 9] ORGANICS sells organics, buys ore+goods+energy', $line);
         $this->assertNotContains('[sector 12]', $line, 'undiscovered ports stay hidden');
         $this->assertNotContains('[sector 5]', $line, 'the current sector is already described on the LOCATION line');
         $this->assertTrue(strpos($line, '[sector 9]') > strpos($line, '[sector 6]'), 'neighbours are listed first');
