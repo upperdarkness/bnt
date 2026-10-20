@@ -16,12 +16,13 @@ Phases 1-3 cost nothing to run. LLM spend only starts in phase 4.
 
 ## Installing
 
+New installs: `database/schema.sql` already contains everything, so just run `scripts/init_db.sh` and then:
+
 ```bash
-psql -v ON_ERROR_STOP=1 --single-transaction -f database/migrations/add_alignment_npcs.sql
 php scripts/create_universe.php 1000 200      # new universes put sector 1 + neighbours in Federation space (zone 2)
 ```
 
-The migration is idempotent. It also moves sector 1 and its neighbours into zone 2 and flags that zone
+Existing databases upgrade with `psql -v ON_ERROR_STOP=1 --single-transaction -f database/migrations/add_alignment_npcs.sql` (idempotent). It also moves sector 1 and its neighbours into zone 2 and flags that zone
 `is_federation = true` on existing universes, and folds the legacy `bounty` table into the new `bounties` table.
 
 ## Alignment

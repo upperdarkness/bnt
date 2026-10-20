@@ -428,6 +428,95 @@ ON CONFLICT (task_name) DO NOTHING;
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
+-- Features that previously shipped only as migrations. They are idempotent and kept
+-- in database/migrations/ for upgrading existing installs; a fresh install needs no migrations.
+-- ---------------------------------------------------------------------------
+
+-- add_api_tokens.sql
+-- API Tokens for mobile app authentication
+CREATE TABLE IF NOT EXISTS api_tokens (
+    token_id SERIAL PRIMARY KEY,
+    ship_id INTEGER NOT NULL,
+    token_hash VARCHAR(255) NOT NULL UNIQUE,
+    token_name VARCHAR(100) DEFAULT 'Mobile App',
+    last_used_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_api_token_ship FOREIGN KEY (ship_id) REFERENCES ships(ship_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_api_tokens_ship ON api_tokens(ship_id);
+CREATE INDEX idx_api_tokens_hash ON api_tokens(token_hash);
+CREATE INDEX idx_api_tokens_expires ON api_tokens(expires_at);
+
+-- add_port_colonists.sql
+-- Add port_colonists column to universe table
+ALTER TABLE universe ADD COLUMN IF NOT EXISTS port_colonists BIGINT DEFAULT 0;
+
+COMMENT ON COLUMN universe.port_colonists IS 'Number of colonists available at this port';
+
+-- add_ship_types.sql
+-- Add ship types to the game
+-- Different ship classes with unique strengths and weaknesses
+
+ALTER TABLE ships
+ADD COLUMN IF NOT EXISTS ship_type VARCHAR(20) DEFAULT 'balanced' CHECK (ship_type IN ('scout', 'merchant', 'warship', 'balanced'));
+
+-- Add comment
+COMMENT ON COLUMN ships.ship_type IS 'Ship class: scout (fast/cheap turns), merchant (cargo), warship (combat), balanced (average)';
+
+-- Update existing ships to balanced type
+UPDATE ships SET ship_type = 'balanced' WHERE ship_type IS NULL;
+
+-- add_skills.sql
+-- Add skill system to ships table
+-- Run this migration to add character skill progression
+
+ALTER TABLE ships
+ADD COLUMN IF NOT EXISTS skill_trading INTEGER DEFAULT 0 CHECK (skill_trading >= 0 AND skill_trading <= 100),
+ADD COLUMN IF NOT EXISTS skill_combat INTEGER DEFAULT 0 CHECK (skill_combat >= 0 AND skill_combat <= 100),
+ADD COLUMN IF NOT EXISTS skill_engineering INTEGER DEFAULT 0 CHECK (skill_engineering >= 0 AND skill_engineering <= 100),
+ADD COLUMN IF NOT EXISTS skill_leadership INTEGER DEFAULT 0 CHECK (skill_leadership >= 0 AND skill_leadership <= 100),
+ADD COLUMN IF NOT EXISTS skill_points INTEGER DEFAULT 0 CHECK (skill_points >= 0);
+
+-- Add comments for documentation
+COMMENT ON COLUMN ships.skill_trading IS 'Trading skill level (0-100): Improves port prices and reduces fees';
+COMMENT ON COLUMN ships.skill_combat IS 'Combat skill level (0-100): Increases damage dealt in combat';
+COMMENT ON COLUMN ships.skill_engineering IS 'Engineering skill level (0-100): Reduces ship upgrade costs';
+COMMENT ON COLUMN ships.skill_leadership IS 'Leadership skill level (0-100): Provides team bonuses';
+COMMENT ON COLUMN ships.skill_points IS 'Unallocated skill points earned through gameplay';
+
+-- add_starbases.sql
+-- Add starbase support to universe
+-- Starbases are safe zones where combat is prohibited and ships can be upgraded
+
+ALTER TABLE universe 
+ADD COLUMN IF NOT EXISTS is_starbase BOOLEAN DEFAULT FALSE;
+
+-- Mark Sector 1 as starbase (always)
+UPDATE universe 
+SET is_starbase = TRUE 
+WHERE sector_id = 1;
+
+-- Create index for faster starbase lookups
+CREATE INDEX IF NOT EXISTS idx_universe_starbase ON universe(is_starbase) WHERE is_starbase = TRUE;
+
+COMMENT ON COLUMN universe.is_starbase IS 'If true, this sector is a starbase where combat is prohibited and ships can be upgraded';
+
+-- fix_planet_owner_nullable.sql
+-- Make planet owner column nullable to allow NULL for unowned planets
+-- This fixes the foreign key constraint issue when creating unowned planets
+ALTER TABLE planets ALTER COLUMN owner DROP NOT NULL;
+ALTER TABLE planets ALTER COLUMN owner DROP DEFAULT;
+ALTER TABLE planets ALTER COLUMN owner SET DEFAULT NULL;
+
+-- Update existing planets with owner = 0 to NULL
+UPDATE planets SET owner = NULL WHERE owner = 0;
+
+COMMENT ON COLUMN planets.owner IS 'Ship ID that owns this planet, NULL for unowned planets';
+
+-- ---------------------------------------------------------------------------
 -- Ships: alignment, Wanted status, NPC flag, last known position (police pursuit)
 -- ---------------------------------------------------------------------------
 ALTER TABLE ships
