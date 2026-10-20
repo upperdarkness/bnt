@@ -9,7 +9,8 @@ use BNT\Core\Services;
 
 /**
  * Base class for tests that need PostgreSQL. Each test class gets its own throw-away
- * database built from database/schema.sql plus every migration (same as production).
+ * database built from database/schema.sql alone: a fresh install needs no migrations (SchemaTest checks that
+ * the migrations add nothing on top).
  * Uses the standard PG* environment variables; skipped when psql/createdb are unavailable.
  */
 abstract class DbTestCase extends TestCase
@@ -47,13 +48,7 @@ abstract class DbTestCase extends TestCase
             return;
         }
         self::$dbName = $name;
-        $files = array_merge(
-            [$root . '/database/schema.sql'],
-            self::migrations($root)
-        );
-        foreach ($files as $file) {
-            exec($env . escapeshellarg($psql) . ' -X -q -d ' . escapeshellarg($name) . ' -f ' . escapeshellarg($file) . ' 2>&1', $o, $r);
-        }
+        exec($env . escapeshellarg($psql) . ' -X -q -d ' . escapeshellarg($name) . ' -f ' . escapeshellarg($root . '/database/schema.sql') . ' 2>&1', $o, $r);
         putenv('DB_NAME=' . $name);
         $_ENV['DB_NAME'] = $name;
         self::$config = require $root . '/config/config.php';
@@ -85,7 +80,7 @@ abstract class DbTestCase extends TestCase
         self::$dbName = null;
     }
 
-    private static function migrations(string $root): array
+    protected static function migrations(string $root): array
     {
         $order = ['add_api_tokens', 'add_attack_logs', 'add_planet_economy_news', 'add_port_colonists', 'add_scheduler',
             'add_ship_types', 'add_skills', 'add_starbases', 'fix_database_setup', 'fix_planet_owner_nullable', 'add_alignment_npcs', 'add_contraband', 'add_protection_news_rumours'];

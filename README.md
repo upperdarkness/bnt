@@ -109,6 +109,10 @@ Run the initialization script:
 ./scripts/init_db.sh
 ```
 
+`database/schema.sql` is the complete schema for a **new** installation (including alignment, NPCs, contraband,
+protection, the Courier and rumours): no migrations are needed. The files in `database/migrations/` are only for
+upgrading an existing database, and a test (`SchemaTest`) fails if they ever add something the schema lacks.
+
 Or manually:
 
 ```bash
@@ -208,7 +212,7 @@ Xenobe Raiders, Free Captains) that follow the same rules as players, and an opt
 selected NPCs through the public API via OpenRouter. Everything is off the critical path: scripted behaviour is the
 default and the fallback, and LLM control is disabled until you turn it on.
 
-* Install: apply `database/migrations/add_alignment_npcs.sql`, then see **[docs/ALIGNMENT_AND_NPCS.md](docs/ALIGNMENT_AND_NPCS.md)**.
+* Install: new databases already include it; existing ones apply `database/migrations/add_alignment_npcs.sql`. See **[docs/ALIGNMENT_AND_NPCS.md](docs/ALIGNMENT_AND_NPCS.md)**.
 * API additions (trading, combat, messaging, alignment, rate limits, agent endpoints): see `API_DOCUMENTATION.md`.
 * Tests: `php tests/run.php` (needs PostgreSQL client tools for the database tests); simulation: `php scripts/npc_simulate.php`.
 

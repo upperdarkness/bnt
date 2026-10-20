@@ -222,3 +222,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Generated rumours** - six rumour types with a 60/25/15 truth model, tavern and informant tiers, per-port daily limit, rumour log and a
   validated LLM flavour-line pool. Off by default (`rumours.enabled`). New LLM tool `buy_rumour`.
 - Migration `database/migrations/add_protection_news_rumours.sql`; scheduler tasks `protection_tick`, `news_candidates`, `rumour_seeds`.
+- **Complete schema** - `database/schema.sql` now contains everything the migrations add (API tokens, ship types, skills,
+  starbases, port colonists), so new installs need no migrations. `SchemaTest` fails if a migration adds anything the schema lacks;
+  all database tests now build from the schema alone.
