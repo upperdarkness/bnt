@@ -227,6 +227,36 @@ class ApiIntegrationTest extends DbTestCase
         $this->assertSame(200, $this->http('GET', '/api/v1/agent/observation', $npc)['status']);
     }
 
+    public function testObservationListsWhatKnownPortsBuyAndSell(): void
+    {
+        [$nid, $npc] = $this->npcToken('free', ['sector' => 5]);
+        $set = fn(int $sector, string $type) => $this->db()->execute('UPDATE universe SET port_type = :t WHERE sector_id = :s', ['t' => $type, 's' => $sector]);
+        $set(4, 'ore');
+        $set(6, 'energy');
+        $set(9, 'organics');     // known, not adjacent
+        $set(12, 'goods');       // exists but this ship has not discovered it
+        foreach ([9, 6, 4, 5] as $i => $sec) {
+            $this->db()->execute("INSERT INTO ship_known_ports (ship_id, sector_id, seen_at) VALUES (:i, :s, now() - CAST(:a AS INTERVAL))", ['i' => $nid, 's' => $sec, 'a' => ($i + 1) . ' hours']);
+        }
+        $obs = $this->http('GET', '/api/v1/agent/observation', $npc)['json']['data']['observation'];
+        $line = current(array_filter(explode("\n", $obs), fn($l) => str_starts_with($l, 'KNOWN PORTS')));
+        $this->assertTrue($line !== false, 'known ports line present');
+        $this->assertContains('[sector 4] ORE sells ore, buys organics+goods', $line);
+        $this->assertContains('[sector 6] ENERGY sells energy, buys ore+organics+goods', $line);
+        $this->assertContains('[sector 9] ORGANICS sells organics, buys ore+goods', $line);
+        $this->assertNotContains('[sector 12]', $line, 'undiscovered ports stay hidden');
+        $this->assertNotContains('[sector 5]', $line, 'the current sector is already described on the LOCATION line');
+        $this->assertTrue(strpos($line, '[sector 9]') > strpos($line, '[sector 6]'), 'neighbours are listed first');
+        // The cap keeps the observation small.
+        for ($s = 13; $s <= 20; $s++) {
+            $set($s, 'goods');
+            $this->db()->execute('INSERT INTO ship_known_ports (ship_id, sector_id) VALUES (:i, :s)', ['i' => $nid, 's' => $s]);
+        }
+        $obs = $this->http('GET', '/api/v1/agent/observation', $npc)['json']['data']['observation'];
+        $this->assertSame(8, substr_count($obs, '] ') - substr_count(preg_replace('/^KNOWN PORTS.*$/m', '', $obs), '] '), 'at most 8 known ports are shown');
+        $this->assertLessThan(6000, strlen($obs), 'observation stays around 1,500 tokens');
+    }
+
     public function testObservationFormatAndHostileTextIsDelimited(): void
     {
         [$nid, $npc] = $this->npcToken('free', ['sector' => 5]);
