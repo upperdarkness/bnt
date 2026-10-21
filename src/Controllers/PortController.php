@@ -191,7 +191,7 @@ class PortController
             // When stock is low (high demand): price increases
             // When stock is high (high supply): price decreases to base price
             
-            $demandRatio = ($maxCapacity - $portAmount) / $maxCapacity;
+            $demandRatio = max(0.0, ($maxCapacity - $portAmount) / $maxCapacity);
             $priceAdjustment = $priceFactor * $demandRatio;
             $calculatedPrice = $basePrice + $priceAdjustment;
 

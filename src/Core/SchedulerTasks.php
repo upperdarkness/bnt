@@ -92,39 +92,27 @@ class SchedulerTasks
             $exportCommodities = $this->getPortExportCommodities($portType);
             $importCommodities = $this->getPortImportCommodities($portType);
 
-            // Regeneration: Ports generate their export commodity
-            // Formula: New_Stock = Current_Stock + ((Max_Capacity - Current_Stock) × Regeneration_Rate)
+            // Exports: the port refills its own product towards its limit. This does not depend on what it imports;
+            // by default the refill rate equals the consumption rate, so a product recovers as fast as imports drain.
             foreach ($exportCommodities as $commodity) {
                 $config = $this->config['trading'][$commodity];
-                $currentStock = (int)$port["port_$commodity"];
-                $maxCapacity = $config['limit'];
-                $regenerationRate = $config['regeneration_rate'];
-
-                // Calculate regeneration based on empty space
-                $emptySpace = $maxCapacity - $currentStock;
-                $regeneration = (int)($emptySpace * $regenerationRate);
-                $newStock = min($currentStock + $regeneration, $maxCapacity);
-
-                if ($newStock != $currentStock) {
+                $currentStock = min((int)$port["port_$commodity"], (int)$config['limit']);
+                $emptySpace = $config['limit'] - $currentStock;
+                $regeneration = (int)ceil($emptySpace * $config['regeneration_rate']);
+                $newStock = min($currentStock + $regeneration, $config['limit']);
+                if ($newStock != (int)$port["port_$commodity"]) {
                     $updates["port_$commodity"] = $newStock;
                 }
             }
 
-            // Consumption: Ports consume their import commodities
-            // Formula: New_Stock = Current_Stock - (Current_Stock × Consumption_Rate)
+            // Imports: the port uses up a share of what it buys (never below zero or above its limit).
             foreach ($importCommodities as $commodity) {
                 $config = $this->config['trading'][$commodity];
-                $currentStock = (int)$port["port_$commodity"];
-                $consumptionRate = $config['consumption_rate'];
-
-                if ($currentStock > 0) {
-                    // Calculate consumption as percentage of current stock
-                    $consumption = (int)($currentStock * $consumptionRate);
-                    $newStock = max($currentStock - $consumption, 0);
-
-                    if ($newStock != $currentStock) {
-                        $updates["port_$commodity"] = $newStock;
-                    }
+                $currentStock = min((int)$port["port_$commodity"], (int)$config['limit']);
+                $consumption = (int)($currentStock * $config['consumption_rate']);
+                $newStock = max($currentStock - $consumption, 0);
+                if ($newStock != (int)$port["port_$commodity"]) {
+                    $updates["port_$commodity"] = $newStock;
                 }
             }
 
