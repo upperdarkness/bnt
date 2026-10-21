@@ -49,7 +49,7 @@ The scheduler handles the following tasks:
 ### Port Production
 - **Interval**: Every 2 minutes
 - **Function**: Ports generate commodities
-- **Details**: Each port type produces its specific commodity (ore, organics, goods, energy)
+- **Details**: Each port type refills its own product (ore, organics, goods, energy) by `regeneration_rate` of the gap to its `limit` per run, whatever it has imported. Each commodity it buys is consumed by `consumption_rate` of the stock it holds. The two rates are equal (0.5%), so a product recovers as fast as an import drains. Stock never exceeds the per-commodity `limit` (100,000; energy 200,000) and anything above it is clamped on the next run. Settings: `trading.*` in `config/config.php`.
 - **Method**: `SchedulerTasks::portProduction()`
 
 ### Planet Production

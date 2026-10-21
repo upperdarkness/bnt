@@ -277,38 +277,48 @@ return [
     ],
 
     // Trading Configuration
+    //
+    // Each port sells one product and buys the other three. Every production run the port's own product refills
+    // by 'regeneration_rate' of the gap to its limit, and each imported commodity is consumed by 'consumption_rate'
+    // of the stock it holds. Production does not depend on imports, and the two rates are equal by default so a
+    // product recovers as fast as an import drains. Price = price + delta x (1 - stock / limit), so a commodity is
+    // dear where it is scarce and cheap where it is plentiful; stock never exceeds 'limit'.
+    'port_economy' => [
+        'import_start_min_pct' => 25,   // new universes start a port's imports at this range of the limit...
+        'import_start_max_pct' => 60,   // ...to this one
+    ],
     'trading' => [
         'ore' => [
             'price' => 11,           // Base price
             'delta' => 5,            // Price factor (max price variation)
             'rate' => 75000,         // Reference rate (legacy, kept for compatibility)
-            'limit' => 100000000,    // Max capacity
-            'regeneration_rate' => 0.05,  // 5% of empty space regenerated per tick
-            'consumption_rate' => 0.02,   // 2% consumed per tick
+            'limit' => 100000,       // Max stock a port holds
+            'regeneration_rate' => 0.005, // share of the gap to the limit refilled per run (equal to consumption_rate)
+            'consumption_rate' => 0.005,  // share of imported stock consumed per run (half-life about 4.6 hours at 2-minute runs)
         ],
         'organics' => [
             'price' => 5,
             'delta' => 2,
             'rate' => 5000,
-            'limit' => 100000000,
-            'regeneration_rate' => 0.05,
-            'consumption_rate' => 0.02,
+            'limit' => 100000,
+            'regeneration_rate' => 0.005,
+            'consumption_rate' => 0.005,
         ],
         'goods' => [
             'price' => 15,
             'delta' => 7,
             'rate' => 75000,
-            'limit' => 100000000,
-            'regeneration_rate' => 0.05,
-            'consumption_rate' => 0.02,
+            'limit' => 100000,
+            'regeneration_rate' => 0.005,
+            'consumption_rate' => 0.005,
         ],
         'energy' => [
             'price' => 3,
             'delta' => 1,
             'rate' => 75000,
-            'limit' => 1000000000,
-            'regeneration_rate' => 0.05,
-            'consumption_rate' => 0.02,
+            'limit' => 200000,
+            'regeneration_rate' => 0.005,
+            'consumption_rate' => 0.005,
         ],
     ],
 ];

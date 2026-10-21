@@ -75,7 +75,7 @@ class TradeService
         foreach (self::COMMODITIES as $commodity) {
             $cfg = $this->config['trading'][$commodity];
             $stock = (int)$sector["port_$commodity"];
-            $demand = ($cfg['limit'] - $stock) / $cfg['limit'];
+            $demand = max(0.0, ($cfg['limit'] - $stock) / $cfg['limit']);
             $base = $cfg['price'] + $cfg['delta'] * $demand;
 
             $buy = 0;
@@ -199,7 +199,9 @@ class TradeService
                     throw new TradeRefused("You do not have enough $commodity", 'INSUFFICIENT_CARGO');
                 }
                 $earn = $amount * $unit;
-                $this->db->execute("UPDATE universe SET $portCol = $portCol + :a WHERE sector_id = :s", ['a' => $amount, 's' => (int)$sector['sector_id']]);
+                // A port never holds more than its limit; anything beyond it is processed on the spot (and still paid for).
+                $this->db->execute("UPDATE universe SET $portCol = LEAST(:lim, $portCol + :a) WHERE sector_id = :s",
+                    ['lim' => (int)$this->config['trading'][$commodity]['limit'], 'a' => $amount, 's' => (int)$sector['sector_id']]);
                 $this->db->execute("UPDATE ships SET credits = credits + :c, $shipCol = $shipCol - :a WHERE ship_id = :id",
                     ['c' => $earn, 'a' => $amount, 'id' => $shipId]);
                 $delta = $earn;

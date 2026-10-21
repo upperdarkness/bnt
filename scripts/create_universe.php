@@ -42,12 +42,15 @@ if ($existingSector1) {
 for ($i = $startFrom; $i <= $numSectors; $i++) {
     $portType = $portTypes[array_rand($portTypes)];
 
-    $initialInventory = [
-        'ore' => ($portType === 'ore') ? 150000 : random_int(50000, 100000),
-        'organics' => ($portType === 'organics') ? 150000 : random_int(50000, 100000),
-        'goods' => ($portType === 'goods') ? 150000 : random_int(50000, 100000),
-        'energy' => ($portType === 'energy') ? 150000 : random_int(50000, 100000),
-    ];
+    // The port's own product starts full; the other commodities (its imports) start partly stocked.
+    $economy = $config['port_economy'];
+    $initialInventory = [];
+    foreach (['ore', 'organics', 'goods', 'energy'] as $commodity) {
+        $limit = (int)$config['trading'][$commodity]['limit'];
+        $initialInventory[$commodity] = ($portType === $commodity)
+            ? $limit
+            : random_int((int)($limit * $economy['import_start_min_pct'] / 100), (int)($limit * $economy['import_start_max_pct'] / 100));
+    }
 
     // Ports start with some colonists
     $portColonists = ($portType !== 'none') ? random_int(5000, 50000) : 0;
