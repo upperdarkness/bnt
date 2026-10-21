@@ -227,3 +227,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   all database tests now build from the schema alone.
 - **LLM observation** - adds a `KNOWN PORTS` line (up to 8 discovered ports, neighbours first) listing what each sells and buys, so captains stop trying trades a port refuses.
 - **Fixed: no port bought energy** - ore, organics and goods ports now buy energy (every port buys everything except its own product, as the code comments always said). `PortRulesTest` pins the rule.
+- **NPC balance** - Raiders are fewer (3 per 1,000 sectors), strike at most every 3 hours and only at ships rated under half their own (`npc.raider_target_ratio`); dead NPCs respawn after 2 hours; Guild and Free Captain loadouts are tougher.

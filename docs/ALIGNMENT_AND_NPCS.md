@@ -76,7 +76,7 @@ Existing databases upgrade with `psql -v ON_ERROR_STOP=1 --single-transaction -f
 * Accounts are created by `scripts/npc_spawn.php` or by the `npc_population` task. Email `<slug>@npc.invalid`,
   unusable password hash, no web or API login (`Ship::authenticate` rejects NPCs). Names carry the faction tag:
   `[Xenobe] Kraal Vesh`.
-* **Respawn keeps the same ship row**, not a new one: a destroyed NPC is marked dead, waits the cooldown (6 h), then
+* **Respawn keeps the same ship row**, not a new one: a destroyed NPC is marked dead, waits the cooldown (2 h, `npc.respawn_cooldown_hours`), then
   its ship is reset to the faction loadout. Persona, notebook and API token carry over, so an LLM NPC remembers who
   killed it and the worker's token file never changes.
 * **Explicit NPC advantages** (all visible on the admin NPC page): faction `turn_multiplier` (default 1.0), free
@@ -84,7 +84,7 @@ Existing databases upgrade with `psql -v ON_ERROR_STOP=1 --single-transaction -f
   (`npc.credit_cap_multiplier` x loadout credits, so successful traders don't compound without bound), and a trading skill for Guild (20) and Free
   Captains (10) - without a skill the default price model leaves no margin to trade on.
 * NPCs never attack their own faction (the combat service refuses and raises an anomaly alert), and Raiders pace
-  themselves with `npc.raider_attack_cooldown_min` (30). Raiders hunt ships, not planets.
+  themselves with `npc.raider_attack_cooldown_min` (180) and only attack ships rated below `npc.raider_target_ratio` (0.5) of their own. Raiders hunt ships, not planets.
 * Scripted tick: `npc_scripted_tick` runs at most 25 NPCs and 200 ms per run (least recently run first) and never
   starts an action with less than `scripted_tick_margin_ms` left. Pathfinding is BFS over a cached graph rebuilt
   every 10 minutes, depth 20.

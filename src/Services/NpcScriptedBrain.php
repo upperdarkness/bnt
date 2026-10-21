@@ -328,6 +328,12 @@ class NpcScriptedBrain
 
     // ---------------------------------------------------------------- raider
 
+    /** Raiders only pick on ships rated below this fraction of their own rating. */
+    private function raiderRatio(): float
+    {
+        return (float)($this->config['npc']['raider_target_ratio'] ?? 0.5);
+    }
+
     private function raider(array $ship, array $profile, array $state, array $ctx): array
     {
         $shipId = (int)$ship['ship_id'];
@@ -351,7 +357,7 @@ class NpcScriptedBrain
         if (!$flags['starbase'] && $cooldownUntil <= time()) {
             $skip = $state['raider']['skip'] ?? [];
             $targets = array_filter($here, fn($o) => ($o['faction'] ?? null) !== 'xenobe'
-                && $o['rating'] < 0.7 * $myRating && !in_array((int)$o['ship_id'], $skip, true));
+                && $o['rating'] < $this->raiderRatio() * $myRating && !in_array((int)$o['ship_id'], $skip, true));
             usort($targets, static fn($a, $b) => $a['rating'] <=> $b['rating']);
             if ($targets) {
                 $t = $targets[0];
@@ -517,7 +523,7 @@ class NpcScriptedBrain
                 continue;
             }
             $rt = $this->rating->rate($r);
-            if ($rt < 0.7 * $myRating && $rt < $bestRating) {
+            if ($rt < $this->raiderRatio() * $myRating && $rt < $bestRating) {
                 $bestRating = $rt;
                 $best = (int)$r['sector'];
             }
