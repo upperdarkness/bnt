@@ -142,13 +142,14 @@ return [
         'log_retention_days' => 30,
         'worker_checkin_timeout_min' => 15,
         'llm_failure_threshold' => 3,
-        'respawn_cooldown_hours' => 6,
+        'respawn_cooldown_hours' => 2,
         // Explicit NPC advantage (visible on the admin page): hulls and fighters restored in the faction's home zone.
         'repair_at_home' => true,
         // NPC wealth sink: credits above (faction loadout credits x this) are taxed away by the Federation each
         // population run, so successful traders do not compound without bound. 0 disables the cap.
         'credit_cap_multiplier' => 20,
-        'raider_attack_cooldown_min' => 30,   // minimum gap between a Xenobe Raider's attacks
+        'raider_attack_cooldown_min' => 180,  // minimum gap between a Xenobe Raider's attacks
+        'raider_target_ratio' => 0.5,         // Raiders only attack ships rated below this fraction of their own rating
         'scripted_tick_max_npcs' => 25,
         'scripted_tick_max_ms' => 200,
         'scripted_tick_margin_ms' => 10,   // don't start an action with less than this left in the budget
@@ -172,8 +173,8 @@ return [
                 'loadout' => ['hull' => 6, 'engines' => 6, 'beams' => 7, 'shields' => 7, 'armor' => 6, 'computer' => 5, 'ship_fighters' => 800, 'torps' => 100, 'credits' => 100000, 'ship_type' => 'warship']],
             'guild' => ['label' => 'Merchant Guild', 'tag' => 'Guild', 'archetype' => 'trader', 'alignment' => 500, 'count_per_1000' => 10,
                 'home_zone' => 1, 'turn_multiplier' => 1.0,
-                'loadout' => ['hull' => 4, 'engines' => 4, 'beams' => 2, 'shields' => 3, 'armor' => 3, 'computer' => 2, 'ship_fighters' => 100, 'torps' => 0, 'credits' => 50000, 'ship_type' => 'merchant', 'skill_trading' => 20]],
-            'xenobe' => ['label' => 'Xenobe Raiders', 'tag' => 'Xenobe', 'archetype' => 'raider', 'alignment' => -3000, 'count_per_1000' => 6,
+                'loadout' => ['hull' => 4, 'engines' => 4, 'beams' => 3, 'shields' => 5, 'armor' => 5, 'computer' => 3, 'ship_fighters' => 250, 'torps' => 0, 'credits' => 50000, 'ship_type' => 'merchant', 'skill_trading' => 20]],
+            'xenobe' => ['label' => 'Xenobe Raiders', 'tag' => 'Xenobe', 'archetype' => 'raider', 'alignment' => -3000, 'count_per_1000' => 3,
                 'home_zone' => 4, 'turn_multiplier' => 1.0,
                 'loadout' => ['hull' => 5, 'engines' => 5, 'beams' => 6, 'shields' => 5, 'armor' => 5, 'computer' => 4, 'ship_fighters' => 500, 'torps' => 60, 'credits' => 30000, 'ship_type' => 'warship']],
             // The Galactic Courier: docked at the Sector 1 starbase, never populated automatically (count 0).
@@ -182,7 +183,7 @@ return [
                 'loadout' => ['hull' => 1, 'engines' => 1, 'beams' => 0, 'shields' => 1, 'armor' => 1, 'computer' => 1, 'ship_fighters' => 0, 'torps' => 0, 'credits' => 10000, 'ship_type' => 'balanced']],
             'free' => ['label' => 'Free Captains', 'tag' => 'Free', 'archetype' => 'free_captain', 'alignment' => 0, 'count_per_1000' => 4,
                 'home_zone' => 3, 'turn_multiplier' => 1.0,
-                'loadout' => ['hull' => 4, 'engines' => 4, 'beams' => 4, 'shields' => 4, 'armor' => 4, 'computer' => 3, 'ship_fighters' => 200, 'torps' => 20, 'credits' => 50000, 'ship_type' => 'balanced', 'skill_trading' => 10]],
+                'loadout' => ['hull' => 4, 'engines' => 4, 'beams' => 4, 'shields' => 5, 'armor' => 5, 'computer' => 3, 'ship_fighters' => 300, 'torps' => 20, 'credits' => 50000, 'ship_type' => 'balanced', 'skill_trading' => 10]],
         ],
     ],
 

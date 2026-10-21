@@ -65,7 +65,7 @@ class NpcFrameworkTest extends DbTestCase
     {
         $this->assertSame(4, $this->npcs()->targetCount('police', 1000));
         $this->assertSame(10, $this->npcs()->targetCount('guild', 1000));
-        $this->assertSame(6, $this->npcs()->targetCount('xenobe', 1000));
+        $this->assertSame(3, $this->npcs()->targetCount('xenobe', 1000));
         $this->assertSame(24, $this->npcs()->targetCount('police', 6000));
         $this->assertSame(1, $this->npcs()->targetCount('police', 30), 'always at least one per faction in a non-empty universe');
         $this->assertSame(0, $this->npcs()->targetCount('police', 0));
@@ -90,7 +90,7 @@ class NpcFrameworkTest extends DbTestCase
         $profile = $this->npcs()->profile($id);
         $this->assertTrue($profile['respawn_at'] !== null, 'respawn cooldown started');
         $hours = (strtotime($profile['respawn_at']) - time()) / 3600;
-        $this->assertTrue($hours > 5.9 && $hours <= 6.0, 'default cooldown is 6 hours');
+        $this->assertTrue($hours > 1.9 && $hours <= 2.0, 'default cooldown is 2 hours');
         $this->assertTrue((bool)$this->ship($id)['ship_destroyed'], 'still dead during the cooldown');
         $this->db()->execute("UPDATE npc_profiles SET respawn_at = now() - interval '1 minute' WHERE ship_id = :id", ['id' => $id]);
         $this->svc('npcTasks')->population();
@@ -169,6 +169,29 @@ class NpcFrameworkTest extends DbTestCase
         $this->assertTrue($rating->rate($this->ship($peer)) >= 0.7 * $rating->rate($this->ship($raider['ship_id'])), 'precondition: peer is not weak');
         $this->svc('npcBrain')->tick($this->npcProfile($raider['ship_id']), ['deadline' => microtime(true) + 5, 'busy_sectors' => []]);
         $this->assertSame(0, (int)$this->db()->fetchOne('SELECT COUNT(*) AS c FROM attack_logs WHERE attacker_id = :id', ['id' => $raider['ship_id']])['c']);
+    }
+
+    public function testRaiderLeavesAlonePlayersRatedBetweenHalfAndSeventyPercentOfItself(): void
+    {
+        $raider = $this->npcs()->spawn('xenobe', ['sector' => 8]);
+        $rating = $this->svc('combatRating');
+        $mine = $rating->rate($this->ship($raider['ship_id']));
+        $mid = null;
+        // Find a stronger-than-weak, weaker-than-70% ship by raising armour/shield levels step by step.
+        for ($level = 3; $level <= 7 && $mid === null; $level++) {
+            $row = ['ship_type' => 'balanced', 'beams' => $level, 'torps' => 0, 'ship_fighters' => 100, 'shields' => $level, 'armor' => $level,
+                'armor_pts' => (int)round(pow(1.5, $level) * 100)];
+            $ratio = $rating->rate($row) / $mine;
+            if ($ratio >= 0.5 && $ratio < 0.7) {
+                $mid = $row;
+            }
+        }
+        $this->assertTrue($mid !== null, 'precondition: a loadout between 50% and 70% of a Raider exists');
+        $target = $this->makePlayer('Midweight', ['sector' => 8] + $mid);
+        $this->svc('npcBrain')->tick($this->npcProfile($raider['ship_id']), ['deadline' => microtime(true) + 5, 'busy_sectors' => []]);
+        $this->assertSame(0, (int)$this->db()->fetchOne('SELECT COUNT(*) AS c FROM attack_logs WHERE attacker_id = :id', ['id' => $raider['ship_id']])['c'],
+            'under the default raider_target_ratio of 0.5 a 50-70% ship is no longer prey');
+        $this->assertSame(0, (int)$this->ship($target)['ship_destroyed'] ? 1 : 0);
     }
 
     public function testRaiderNeverAttacksFellowRaidersAndRetreatsWhenHurt(): void
