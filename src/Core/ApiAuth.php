@@ -84,6 +84,7 @@ class ApiAuth
         if (($ship['protection_state'] ?? 'none') !== 'none') {
             $this->shipModel->markActive((int)$ship['ship_id']);
         }
+        $this->shipModel->touchLastSeen((int)$ship['ship_id']);
         $this->currentTokenHash = $tokenHash;
         return $ship;
     }
