@@ -29,10 +29,9 @@ class Ship extends Model
             return null;
         }
 
-        // Update last login
-        $this->update((int)$ship['ship_id'], [
-            'last_login' => date('Y-m-d H:i:s')
-        ]);
+        // Update last login. Use the database clock: the column has no time zone and "online" is judged against NOW(),
+        // so a PHP-formatted time in another zone (PHP is UTC, the database may not be) would make everyone look offline.
+        $this->db->execute("UPDATE {$this->table} SET last_login = NOW() WHERE ship_id = :id", ['id' => (int)$ship['ship_id']]);
         if (($ship['protection_state'] ?? 'none') !== 'none') {
             $this->markActive((int)$ship['ship_id']);
         }
@@ -102,6 +101,19 @@ class Ship extends Model
     }
 
     /** Count today as an active day for a protected ship (one cheap guarded UPDATE). */
+    /**
+     * Record that a player is active right now (shown as Online for 5 minutes). Throttled to one write a minute
+     * so ordinary page loads stay read-mostly. NPCs are updated by the scheduler instead.
+     */
+    public function touchLastSeen(int $shipId): void
+    {
+        $this->db->execute(
+            "UPDATE {$this->table} SET last_login = NOW()
+             WHERE ship_id = :id AND is_npc = FALSE AND (last_login IS NULL OR last_login < NOW() - INTERVAL '60 seconds')",
+            ['id' => $shipId]
+        );
+    }
+
     public function markActive(int $shipId): void
     {
         $this->db->execute(

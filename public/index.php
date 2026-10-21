@@ -123,6 +123,11 @@ $scheduler->registerTask('rumour_seeds', [$contentTasks, 'rumourSeeds'], 60);
 // This runs on every page load but only executes tasks when their interval has elapsed
 $scheduler->run();
 
+// Keep "Online" accurate: a logged-in player counts as active on every page load (written at most once a minute).
+if ($session->isLoggedIn() && $session->getUserId()) {
+    $shipModel->touchLastSeen((int)$session->getUserId());
+}
+
 // Initialize controllers
 $authController = new AuthController($shipModel, $session, $config);
 $gameController = new GameController($shipModel, $universeModel, $planetModel, $combatModel, $session, $config, $movementService, $alignmentService, $tradeService, $protectionService, $rumourService);

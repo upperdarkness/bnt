@@ -210,6 +210,25 @@ class WebSmokeTest extends DbTestCase
         $this->assertFalse((bool)$this->db()->fetchOne('SELECT is_blackmarket AS b FROM universe WHERE sector_id = 9')['b']);
     }
 
+    public function testPlayingKeepsYouOnline(): void
+    {
+        $me = $this->makePlayer('Skipper', ['sector' => 5]);
+        $this->db()->execute("UPDATE ships SET last_login = now() - interval '2 hours' WHERE ship_id = :id", ['id' => $me]);
+        $this->login($me);
+        // Logging in is itself recent activity, whatever time zones PHP and the database use.
+        $this->assertTrue((bool)$this->db()->fetchOne("SELECT (EXTRACT(EPOCH FROM (NOW() - last_login)) <= 300) AS online FROM ships WHERE ship_id = :id", ['id' => $me])['online'], 'online right after login');
+        $this->db()->execute("UPDATE ships SET last_login = now() - interval '20 minutes' WHERE ship_id = :id", ['id' => $me]);
+        $this->assertPage($this->web('GET', '/status'), 'status');          // any page counts as activity
+        $age = (float)$this->db()->fetchOne('SELECT EXTRACT(EPOCH FROM (now() - last_login)) AS s FROM ships WHERE ship_id = :id', ['id' => $me])['s'];
+        $this->assertTrue($age < 60, "an authenticated page load refreshes last_login (age {$age}s)");
+        $this->assertTrue((bool)$this->db()->fetchOne(
+            "SELECT (EXTRACT(EPOCH FROM (NOW() - last_login)) <= 300) AS online FROM ships WHERE ship_id = :id", ['id' => $me])['online'], 'shown as Online');
+        // Throttled: a second load within the minute does not write again.
+        $stamp = $this->db()->fetchOne('SELECT last_login FROM ships WHERE ship_id = :id', ['id' => $me])['last_login'];
+        $this->assertPage($this->web('GET', '/status'), 'status again');
+        $this->assertSame($stamp, $this->db()->fetchOne('SELECT last_login FROM ships WHERE ship_id = :id', ['id' => $me])['last_login'], 'at most one write a minute');
+    }
+
     public function testProtectionRumourAndJournalistPages(): void
     {
         $me = $this->makePlayer('Rookie', ['sector' => 5, 'protection_state' => 'protected', 'credits' => 50000, 'turns' => 100]);
