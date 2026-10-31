@@ -31,6 +31,16 @@ abstract class TestCase
         }
     }
 
+    protected function assertNull(mixed $value, string $message = ''): void
+    {
+        $this->assertTrue($value === null, $message !== '' ? $message : 'Expected null, got ' . var_export($value, true));
+    }
+
+    protected function assertNotNull(mixed $value, string $message = ''): void
+    {
+        $this->assertTrue($value !== null, $message !== '' ? $message : 'Expected a value, got null');
+    }
+
     protected function assertFalse(mixed $v, string $msg = ''): void
     {
         $this->assertions++;

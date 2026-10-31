@@ -84,6 +84,31 @@ return [
         'based_credit_limit' => 100000000000,
     ],
 
+    // Public address used in emailed links (password resets). Set APP_URL in production; when unset the links use the
+    // address the request came in on, which is only as trustworthy as the Host header.
+    'app_url' => rtrim((string)(getenv('APP_URL') ?: ''), '/'),
+
+    // Outgoing email. driver: smtp | mail (PHP mail()) | log (append to log_path, for development) | none.
+    'mail' => [
+        'driver' => getenv('MAIL_DRIVER') ?: 'none',
+        'host' => getenv('MAIL_HOST') ?: 'localhost',
+        'port' => (int)(getenv('MAIL_PORT') ?: 587),
+        'encryption' => getenv('MAIL_ENCRYPTION') ?: 'tls',     // tls (STARTTLS), ssl (implicit TLS) or none
+        'username' => getenv('MAIL_USERNAME') ?: '',
+        'password' => getenv('MAIL_PASSWORD') ?: '',
+        'from' => getenv('MAIL_FROM') ?: 'noreply@localhost',
+        'from_name' => getenv('MAIL_FROM_NAME') ?: 'BlackNova Traders',
+        'log_path' => getenv('MAIL_LOG_PATH') ?: sys_get_temp_dir() . '/bnt_mail.log',
+        'timeout' => 10,
+    ],
+
+    // Forgotten-password reset.
+    'password_reset' => [
+        'ttl_minutes' => 60,
+        'per_account_per_hour' => 3,     // emails per account per hour
+        'ip_per_minute' => 5,            // requests per address (token bucket)
+    ],
+
     // Alignment & Federation enforcement. All thresholds/percentages are starting values.
     'alignment' => [
         'enabled' => filter_var(getenv('ALIGNMENT_ENABLED') ?: 'true', FILTER_VALIDATE_BOOLEAN),

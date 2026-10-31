@@ -222,6 +222,30 @@ default and the fallback, and LLM control is disabled until you turn it on.
 * API additions (trading, combat, messaging, alignment, rate limits, agent endpoints): see `API_DOCUMENTATION.md`.
 * Tests: `php tests/run.php` (needs PostgreSQL client tools for the database tests); simulation: `php scripts/npc_simulate.php`.
 
+## Password reset and outgoing email
+
+Players who forget their password use **Forgot your password?** on the login page (or `POST /api/v1/auth/forgot-password` in the app).
+The game emails a one-time link (valid 60 minutes; asking again cancels the earlier link; at most 3 emails an hour per account). The
+answer never reveals whether an address has an account, and a successful reset also signs the account out of the app.
+
+Email needs an SMTP server. Set these (PHP-FPM environment, `.env`, or `config/config.php`):
+
+```
+APP_URL=https://your-game.example.com      # used in emailed links - always set this in production
+MAIL_DRIVER=smtp                           # smtp | mail (PHP mail()) | log (writes to MAIL_LOG_PATH) | none
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_ENCRYPTION=tls                        # tls (STARTTLS) | ssl | none
+MAIL_USERNAME=...
+MAIL_PASSWORD=...
+MAIL_FROM=noreply@your-game.example.com
+MAIL_FROM_NAME="BlackNova Traders"
+```
+
+Any transactional-email provider works (Amazon SES, Mailgun, Brevo, a mailbox on your own domain, ...); add the provider's SPF/DKIM
+records for the sending domain so messages are not treated as spam. **Without email**, an administrator can open a player in the
+admin panel (Players, Edit) and press **Create reset link**, then send the link to the player.
+
 ## Security Configuration
 
 ### Change Admin Password

@@ -75,6 +75,16 @@ Login and receive an API token.
 
 ---
 
+#### POST `/api/v1/auth/forgot-password`
+Public. Body `{"email": "..."}`. Always answers `200` with the same message, whether or not the address has an account; if it does,
+a reset link is emailed (valid 60 minutes, 3 per account per hour). `422` for a malformed address, `429` (with `Retry-After`) when
+one address makes too many requests.
+
+#### POST `/api/v1/auth/reset-password`
+Public. Body `{"token": "<from the emailed link>", "password": "<new password>"}`. `200` on success; `422` if the password is too
+short or long (the token is not used up); `400 INVALID_TOKEN` for an unknown, used or expired token. All of the account's app
+tokens are revoked, so log in again afterwards.
+
 #### POST `/api/v1/auth/register`
 
 Register a new account and receive an API token.

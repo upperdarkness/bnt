@@ -799,3 +799,17 @@ INSERT INTO scheduler_tasks (task_name, interval_minutes, description) VALUES
     ('news_candidates', 30,  'Score events and queue journalist story candidates and interviews'),
     ('rumour_seeds',    60,  'Generate rumour seeds with their truth state and expire old ones')
 ON CONFLICT (task_name) DO NOTHING;
+
+-- Forgotten-password reset tokens (identical to database/migrations/add_password_resets.sql)
+CREATE TABLE IF NOT EXISTS password_resets (
+  id            BIGSERIAL PRIMARY KEY,
+  ship_id       INTEGER NOT NULL REFERENCES ships(ship_id) ON DELETE CASCADE,
+  token_hash    CHAR(64) NOT NULL UNIQUE,
+  expires_at    TIMESTAMPTZ NOT NULL,
+  used_at       TIMESTAMPTZ NULL,
+  requested_ip  TEXT NULL,
+  created_by    TEXT NOT NULL DEFAULT 'user' CHECK (created_by IN ('user', 'admin')),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_resets_ship ON password_resets (ship_id, created_at DESC);
