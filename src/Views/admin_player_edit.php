@@ -168,6 +168,20 @@ ob_start();
     </form>
 </div>
 
+<div style="margin-top: 30px; padding: 20px; border: 1px solid rgba(52, 152, 219, 0.4); border-radius: 8px;">
+    <h3>Password reset</h3>
+    <p style="color: #95a5a6;">Create a one-time reset link for this player and send it to them yourself (for example when the server cannot send email).
+        Creating a new link cancels any earlier one.</p>
+    <?php $link = $session->get('reset_link'); if ($link && (int)$link['ship_id'] === (int)$player['ship_id']): $session->remove('reset_link'); ?>
+        <p style="margin: 15px 0 5px;"><strong>Link</strong> (shown once, valid <?= (int)$link['minutes'] ?> minutes):</p>
+        <input type="text" readonly value="<?= htmlspecialchars($link['url']) ?>" onclick="this.select()" style="width: 100%;">
+    <?php endif; ?>
+    <form action="/admin/players/<?= (int)$player['ship_id'] ?>/reset-link" method="post" style="margin-top: 15px;">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($session->getCsrfToken()) ?>">
+        <button type="submit" class="btn">Create reset link</button>
+    </form>
+</div>
+
 <div style="margin-top: 30px;">
     <a href="/admin/players" class="btn">Back to Players</a>
 </div>

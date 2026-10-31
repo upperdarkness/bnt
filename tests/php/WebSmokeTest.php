@@ -8,6 +8,7 @@ namespace BNT\Tests;
 class WebSmokeTest extends DbTestCase
 {
     private static int $port = 0;
+    private static string $mailLog = '';
     private static string $jar = '';
 
     public static function setUpBeforeClass(): void
@@ -23,6 +24,7 @@ class WebSmokeTest extends DbTestCase
                 'DB_NAME' => self::$dbName, 'DB_USER' => self::$config['database']['username'], 'DB_PASS' => 'x',
                 'NPC_GRAPH_CACHE' => sys_get_temp_dir() . '/bnt_web_graph_' . self::$dbName . '.json',
                 'display_errors' => '1', 'CONTRABAND_ENABLED' => 'true', 'RUMOURS_ENABLED' => 'true', 'NEWS_JOURNALIST_ENABLED' => 'true',
+                'MAIL_DRIVER' => 'log', 'MAIL_LOG_PATH' => self::$mailLog = sys_get_temp_dir() . '/bnt_web_mail_' . bin2hex(random_bytes(4)) . '.txt',
             ], $root);
         } catch (\Throwable $e) {
             self::$skip = $e->getMessage();
@@ -31,6 +33,7 @@ class WebSmokeTest extends DbTestCase
 
     public static function tearDownAfterClass(): void
     {
+        @unlink(self::$mailLog);
         HttpServers::stop(self::$port);
         @unlink(sys_get_temp_dir() . '/bnt_web_graph_' . self::$dbName . '.json');
         parent::tearDownAfterClass();
@@ -208,6 +211,111 @@ class WebSmokeTest extends DbTestCase
         $this->assertFalse((bool)$this->db()->fetchOne('SELECT is_blackmarket AS b FROM universe WHERE sector_id = 9')['b']);
         $this->web('POST', '/admin/universe/sector/9/update', $form(['is_blackmarket' => '1', 'zone_id' => '2']));
         $this->assertFalse((bool)$this->db()->fetchOne('SELECT is_blackmarket AS b FROM universe WHERE sector_id = 9')['b']);
+    }
+
+    /** The reset link from the newest email in the mail log (the web server writes it after the response is sent). */
+    private function emailedResetLink(string $to): ?string
+    {
+        for ($i = 0; $i < 40; $i++) {
+            $log = (string)@file_get_contents(self::$mailLog);
+            foreach (array_reverse(explode("\n=====\n", $log)) as $mail) {
+                if (str_contains($mail, "To: $to")) {
+                    if (preg_match('#(http://127\.0\.0\.1:\d+/reset-password\?token=[A-Za-z0-9_-]{43})#', $mail, $m)) {
+                        return $m[1];
+                    }
+                }
+            }
+            usleep(100000);
+        }
+        return null;
+    }
+
+    public function testForgottenPasswordWebFlow(): void
+    {
+        $id = $this->makePlayer('Forgetful', ['sector' => 5]);
+        $email = $this->ship($id)['email'];
+        $login = $this->web('GET', '/');
+        $this->assertPage($login, 'login page', ['Forgot your password?', '/forgot-password']);
+        $forgot = $this->web('GET', '/forgot-password');
+        $this->assertPage($forgot, 'forgot page', ['Forgot your password?', 'Send reset link']);
+
+        // Unknown and known addresses get the same answer.
+        $generic = 'If that email address has an account';
+        $r = $this->web('POST', '/forgot-password', ['csrf_token' => $this->csrf('/forgot-password'), 'email' => 'nobody@example.com']);
+        $this->assertSame('/', $r['location']);
+        $this->assertContains($generic, $this->web('GET', '/')['body']);
+        $r = $this->web('POST', '/forgot-password', ['csrf_token' => $this->csrf('/forgot-password'), 'email' => $email]);
+        $this->assertSame('/', $r['location']);
+        $this->assertContains($generic, $this->web('GET', '/')['body']);
+        $bad = $this->web('POST', '/forgot-password', ['csrf_token' => 'forged', 'email' => $email]);
+        $this->assertSame('/forgot-password', $bad['location'], 'a forged form is refused');
+
+        $link = $this->emailedResetLink($email);
+        $this->assertNotNull($link, 'the email with the link arrived');
+        $this->assertNotContains('nobody@example.com', (string)file_get_contents(self::$mailLog), 'nothing was sent to the unknown address');
+        $path = substr($link, strpos($link, '/reset-password'));
+
+        $page = $this->web('GET', $path);
+        $this->assertPage($page, 'reset page', ['Choose a new password', 'password_confirm']);
+        $this->assertNotContains('invalid, already used', $page['body']);
+        $mismatch = $this->web('POST', '/reset-password', ['csrf_token' => $this->csrf($path), 'token' => substr($path, strpos($path, 'token=') + 6),
+            'password' => 'brand-new-pass-1', 'password_confirm' => 'different-pass-2']);
+        $this->assertContains('/reset-password?token=', (string)$mismatch['location'], 'mismatched passwords send you back to the form');
+        $token = substr($path, strpos($path, 'token=') + 6);
+        $done = $this->web('POST', '/reset-password', ['csrf_token' => $this->csrf($path), 'token' => $token,
+            'password' => 'brand-new-pass-1', 'password_confirm' => 'brand-new-pass-1']);
+        $this->assertSame('/', $done['location']);
+        $this->assertContains('Your password has been changed', $this->web('GET', '/')['body']);
+
+        // The new password logs in, the old one does not, and the link is dead.
+        $old = $this->web('POST', '/login', ['csrf_token' => $this->csrf('/'), 'email' => $email, 'password' => 'password123']);
+        $this->assertSame('/', $old['location'], 'old password refused');
+        $new = $this->web('POST', '/login', ['csrf_token' => $this->csrf('/'), 'email' => $email, 'password' => 'brand-new-pass-1']);
+        $this->assertSame('/main', $new['location'], 'new password accepted');
+        $this->assertContains('invalid, already used', $this->web('GET', $path)['body']);
+    }
+
+    public function testAdminCanIssueAResetLink(): void
+    {
+        $id = $this->makePlayer('Locked Out', ['sector' => 5]);
+        $this->web('POST', '/admin/login', ['csrf_token' => $this->csrf('/admin/login'), 'password' => 'secret']);
+        $this->assertPage($this->web('GET', "/admin/players/$id/edit"), 'edit page', ['Create reset link']);
+        $r = $this->web('POST', "/admin/players/$id/reset-link", ['csrf_token' => $this->csrf("/admin/players/$id/edit")]);
+        $this->assertSame("/admin/players/$id/edit", $r['location']);
+        $page = $this->web('GET', "/admin/players/$id/edit");
+        $this->assertPage($page, 'edit page with link', ['reset-password?token=']);
+        $this->assertNotContains('reset-password?token=', $this->web('GET', "/admin/players/$id/edit")['body'], 'the link is shown once');
+        $this->assertSame('admin', $this->db()->fetchOne('SELECT created_by FROM password_resets WHERE ship_id = :i', ['i' => $id])['created_by']);
+    }
+
+    private function apiJson(string $path, array $body): array
+    {
+        $ch = curl_init('http://127.0.0.1:' . self::$port . $path);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode($body),
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_TIMEOUT => 30]);
+        $raw = (string)curl_exec($ch);
+        return ['status' => (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE), 'json' => json_decode($raw, true) ?: []];
+    }
+
+    public function testForgottenPasswordApi(): void
+    {
+        $id = $this->makePlayer('Mobile', ['sector' => 5]);
+        $email = $this->ship($id)['email'];
+        $known = $this->apiJson('/api/v1/auth/forgot-password', ['email' => $email]);
+        $unknown = $this->apiJson('/api/v1/auth/forgot-password', ['email' => 'nobody@example.com']);
+        $this->assertSame(200, $known['status']);
+        $this->assertSame($known['json'], $unknown['json'], 'identical answers for known and unknown addresses');
+        $this->assertSame(422, $this->apiJson('/api/v1/auth/forgot-password', ['email' => 'nonsense'])['status']);
+        $link = $this->emailedResetLink($email);
+        $this->assertNotNull($link);
+        $token = substr($link, strpos($link, 'token=') + 6);
+        $weak = $this->apiJson('/api/v1/auth/reset-password', ['token' => $token, 'password' => 'short']);
+        $this->assertSame(422, $weak['status']);
+        $ok = $this->apiJson('/api/v1/auth/reset-password', ['token' => $token, 'password' => 'api-new-password-1']);
+        $this->assertSame(200, $ok['status'], json_encode($ok['json']));
+        $login = $this->apiJson('/api/v1/auth/login', ['email' => $email, 'password' => 'api-new-password-1']);
+        $this->assertSame(200, $login['status'], 'the app can log in with the new password');
+        $this->assertSame(400, $this->apiJson('/api/v1/auth/reset-password', ['token' => $token, 'password' => 'api-new-password-2'])['status'], 'one use only');
     }
 
     public function testPlayingKeepsYouOnline(): void

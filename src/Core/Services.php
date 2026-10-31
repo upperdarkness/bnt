@@ -18,7 +18,9 @@ use BNT\Services\CombatRating;
 use BNT\Services\ContentValidator;
 use BNT\Services\ContrabandService;
 use BNT\Services\FeatureSettings;
+use BNT\Services\Mailer;
 use BNT\Services\NewsService;
+use BNT\Services\PasswordResetService;
 use BNT\Services\RumourService;
 use BNT\Services\CombatService;
 use BNT\Services\MessagingService;
@@ -92,6 +94,8 @@ class Services
         $s['contentValidator'] = $validator = new ContentValidator($filter, $config);
         $s['rumourService'] = $rumours = new RumourService($db, $graph, $protection, $validator, $config);
         $s['newsService'] = $news = new NewsService($db, $validator, $filter, $press, $protection, $config);
+        $s['mailer'] = $mailer = new Mailer($config);
+        $s['passwordResetService'] = new PasswordResetService($db, $ship, $mailer, new RateLimiter($db), $config);
         $s['contentTasks'] = new ContentSchedulerTasks($protection, $news, $rumours);
         $s['observationBuilder'] = new ObservationBuilder($db, $ship, $planet, $trade, $alignment, $rating, $events, $filter, $config, $contraband);
         return $s;

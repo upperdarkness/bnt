@@ -321,6 +321,10 @@ class SchedulerTasks
     {
         $actions = [];
 
+        // Forget used and long-expired password reset tokens
+        $this->db->execute("DELETE FROM password_resets WHERE expires_at < NOW() - INTERVAL '7 days'");
+        $actions[] = "cleaned password resets";
+
         // Remove old session data (older than 7 days)
         $this->db->execute("DELETE FROM sessions WHERE last_activity < NOW() - INTERVAL '7 days'");
         $actions[] = "cleaned sessions";

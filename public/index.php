@@ -75,6 +75,8 @@ use BNT\Controllers\NpcAdminController;
 use BNT\Controllers\ApiContentController;
 use BNT\Controllers\ContentWebController;
 use BNT\Controllers\ContentAdminController;
+use BNT\Controllers\PasswordResetController;
+use BNT\Controllers\ApiPasswordController;
 
 // Load configuration
 $config = require __DIR__ . '/../config/config.php';
@@ -158,6 +160,8 @@ $apiAgentController = new ApiAgentController($shipModel, $observationBuilder, $m
     $db, $newsService, $rumourService);
 $apiContentController = new ApiContentController($db, $shipModel, $protectionService, $rumourService, $apiMiddleware, $config);
 $contentAdminController = new ContentAdminController($db, $newsService, $rumourService, $protectionService, $session, $adminAuth, $config);
+$passwordResetController = new PasswordResetController($passwordResetService, $session, $adminAuth);
+$apiPasswordController = new ApiPasswordController($passwordResetService);
 $contentWebController = new ContentWebController($shipModel, $protectionService, $rumourService, $session);
 $alignmentController = new AlignmentController($shipModel, $alignmentService, $bountyService, $session, $config);
 $npcAdminController = new NpcAdminController($db, $npcService, $npcSettings, $npcControl, $npcMonitor, $npcEvents,
@@ -167,6 +171,11 @@ $npcAdminController = new NpcAdminController($db, $npcService, $npcSettings, $np
 $router->get('/', fn() => $authController->showLogin());
 $router->post('/login', fn() => $authController->login());
 $router->post('/register', fn() => $authController->register());
+$router->get('/forgot-password', fn() => $passwordResetController->showForgot());
+$router->post('/forgot-password', fn() => $passwordResetController->sendForgot());
+$router->get('/reset-password', fn() => $passwordResetController->showReset());
+$router->post('/reset-password', fn() => $passwordResetController->doReset());
+$router->post('/admin/players/:id/reset-link', fn($id) => $passwordResetController->adminIssue((int)$id));
 $router->get('/logout', fn() => $authController->logout());
 
 $router->get('/news', fn() => $newsController->index());
@@ -303,6 +312,8 @@ $router->addMiddleware(function() use ($apiMiddleware) {
 // API Routes - Authentication
 $router->post('/api/v1/auth/login', fn() => $apiAuthController->login());
 $router->post('/api/v1/auth/register', fn() => $apiAuthController->register());
+$router->post('/api/v1/auth/forgot-password', fn() => $apiPasswordController->forgot());
+$router->post('/api/v1/auth/reset-password', fn() => $apiPasswordController->reset());
 $router->post('/api/v1/auth/logout', fn() => $apiAuthController->logout());
 $router->get('/api/v1/auth/me', fn() => $apiAuthController->me());
 

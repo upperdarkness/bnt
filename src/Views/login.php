@@ -28,6 +28,7 @@ ob_start();
             </div>
 
             <input type="submit" value="Login">
+            <p style="margin-top: 15px; text-align: center;"><a href="/forgot-password">Forgot your password?</a></p>
         </form>
     </div>
 
